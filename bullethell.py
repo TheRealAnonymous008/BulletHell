@@ -11,6 +11,7 @@ from patterns import *
 from presets import * 
 from player import * 
 from pygame.locals import DOUBLEBUF
+from pygame.locals import HWSURFACE
 
 # Initialize all constants
 
@@ -28,7 +29,7 @@ OFFSET = constants.OFFSET
 CURRENT_TIME = 0
 pygame.init()
 clock = pygame.time.Clock()
-flags = DOUBLEBUF
+flags = DOUBLEBUF | HWSURFACE
 screen = pygame.display.set_mode((SWIDTH, SHEIGHT), flags)
 screen.set_alpha(None)
 playarea = pygame.Surface((SWIDTH + OFFSET, SHEIGHT + OFFSET))
@@ -63,18 +64,46 @@ def showTime():
     tim_text = font.render(time_elapsed, 1, (0, 255, 0 , 120))
     return tim_text
 
+def showBulletCtr():
+    b = "Bullets Displayed: " + str(int(len(bulletsDisplayed))) 
+    b_text = font.render(b, 1, (0, 255, 0, 120))
+    return b_text
+
 # Function to Draw the Bullets
 def checkbounds(b, screen, SWIDTH, SHEIGHT):
     t = pygame.time.get_ticks() - b.birth
+    # Set the bullet to Homing if time is up
     if b.homingDelay <= t and b.rules[1] == True: 
         b.isHoming = True
 
-    if b.stickyTimer <=t and b.rules[2] == True and b.stickyTimer != -1 and b.stickyTimerStop >= t and b.stickyTimerStop != -1:
+    # Set bullet to sticky if time is up and not sticky if it exceeds duration of sticky 
+    if b.stickyTimer <=t and b.rules[2] == True and ((b.stickyTimer != -1 and b.stickyTimerStop >= t) or b.stickyTimerStop == -1):
         b.isSticky = True
     elif b.rules[2] and random.randrange(0, fps) == 1 and b.stickyTimer == -1: 
         b.isSticky = True
     else:
         b.isSticky = False
+
+    if b.motion_delay >= t - b.lastStopTime and b.motion_delay != -1:
+        b.isSticky = True
+    else: 
+        b.isSticky =False
+        if b.stop: 
+            b.lastStopTime = t
+            b.stop = False
+
+    # Set bullet to orbit if time is up and not orbit if it exceeds duration of orbit
+    if b.rules[3] == True and b.orbitTimer <= t and( (t <= b.orbitTimerStop and b.orbitTimerStop != -1) or b.orbitTimerStop == -1):
+        b.isOrbit = True
+    else:
+        b.isOrbit = False
+
+    if b.rules[4] and t >= b.visibleTimerStop and b.visibleTimerStop != -1:
+        b.rules[4] = False
+
+    # If the Bulet is Invisible, Don't Draw It
+    if not b.rules[4]:
+        return
 
     if b.xpos - b.size > SWIDTH or b.ypos - b.size > SHEIGHT or b.xpos + b.size < 0 or b.ypos + b.size < 0:
         if b.isdeleteIfOut() == True:
@@ -83,6 +112,7 @@ def checkbounds(b, screen, SWIDTH, SHEIGHT):
         else:
             entitiesOffScreen.add(b)
             bulletsDisplayed.remove(b)
+    
     elif b.life == 0:
         bulletsDisplayed.remove(b)
         del b
@@ -94,11 +124,27 @@ def checkbounds(b, screen, SWIDTH, SHEIGHT):
 # Function to add the bullets to displayedbullets array
 
 def displayBullets():
-    CURRENT_TIME = pygame.time.get_ticks()
     for s in shooters:
+    # Handle Motion:
     # Condition to check whether or not to fire again
+        CURRENT_TIME = pygame.time.get_ticks()
+
+        if s.isVisible:
+            bulletsDisplayed.add(s)
+            s.isVisible = False
+        else:
+            s.motion()
+
+        if CURRENT_TIME  <= s.birth + s.delay and s.delay != 0:
+            continue
+        if s.fireWhenStop and not s.isSticky:
+            continue
+        if s.fireWhenNotStop and s.isSticky:
+            continue
+        
         if s.ammo == 0  or (CURRENT_TIME - s.birth ==s.life and s.life != -1 ):
             shooters.remove(s)
+            bulletsDisplayed.remove(s)
             del s
         elif random.randrange(0, fps) == 1 and not s.isAuto:
             s.reload(CURRENT_TIME)
@@ -109,7 +155,7 @@ def displayBullets():
             s.reload(CURRENT_TIME)
             if s.ammo != -1:
                 s.setAmmo(s.ammo - 1)
-        
+
         try:
             for b in s.bullets:
                 bulletsDisplayed.add(b)
@@ -137,9 +183,9 @@ def updatebullets(b, screen , SWIDTH, SHEIGHT):
         b.draw(playarea)
 
 # Draw and Motions
-
 def main():
     pygame.init()
+    pygame.event.set_allowed([pygame.QUIT, pygame.KEYDOWN])
     def redraw():
         screen.fill(black)
         for b in bulletsDisplayed:
@@ -154,9 +200,10 @@ def main():
         # Debugging: 
         screen.blit(updatefps(), (10, 10))
         screen.blit(showTime(), (10, 25))
+        screen.blit(showBulletCtr(), (10, 40))
 
 
-        pygame.display.update()
+        pygame.display.flip()
 
     while True:
         clock.tick(fps)
@@ -166,49 +213,21 @@ def main():
             if event.type == pygame.QUIT:
                 sys.exit()
             if event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_w:
+                if event.key == pygame.K_1:
                     p = Preset1()
                     p.setBirth(CURRENT_TIME)
+                    p.prime()
                     presetsList.add(p)
-                
-                if event.key == pygame.K_a:
+                if event.key == pygame.K_2:
                     p = Preset2()
                     p.setBirth(CURRENT_TIME)
-                    presetsList.add(p)
-
-                if event.key == pygame.K_s:
-                    p = Preset3()
-                    p.setBirth(CURRENT_TIME)
-                    presetsList.add(p)
-
-                if event.key == pygame.K_SPACE:
-                    p = Preset4()
-                    p.setBirth(CURRENT_TIME)
-                    presetsList.add(p)
-
-                if event.key == pygame.K_f:
-                    p = Preset5()
-                    p.setBirth(CURRENT_TIME)
-                    presetsList.add(p)
-
-                if event.key == pygame.K_z:
-                    p = Preset6()
-                    p.setBirth(CURRENT_TIME)
-                    presetsList.add(p)
-
-                if event.key == pygame.K_x:
-                    p = Preset7()
-                    p.setBirth(CURRENT_TIME)
-                    presetsList.add(p)
-
-                if event.key == pygame.K_q:
-                    p = Preset8()
-                    p.setBirth(CURRENT_TIME)
+                    p.prime()
                     presetsList.add(p)
 
         for p in presetsList:
             for s in p.shooter_list:
                 shooters.add(s)
+            presetsList.remove(p)
             del p
 
         mousex, mousey = pygame.mouse.get_pos()
@@ -217,9 +236,5 @@ def main():
 
         displayBullets()
         redraw()
-        
-    
 
 main()
-
-        

@@ -17,7 +17,7 @@ class Bullet(Entity):
 
     def __init__ (self):
         self.size = defsize
-        self.color = (0, 0, 0)
+        self.color = constants.white
         
         # rules
         self.deleteIfOut = True
@@ -111,12 +111,12 @@ class Wave(Bullet):
         self.radvel = radvel
 
     def draw(self, screen):
-        pygame.draw.arc(screen, self.color, (self.centerx - self.radius, self. centery - self.radius, 2 * self.radius, 2*  self.radius), self.rotation, self.rotation + self.arc, self.size)
+        if self.arc != math.radians(360):
+            pygame.draw.arc(screen, self.color, (self.centerx - self.radius, self. centery - self.radius, 2 * self.radius, 2*  self.radius), self.rotation, self.rotation + self.arc, self.size)
+        else:
+            pygame.draw.circle(screen, self.color, (int(self.centerx), int(self.centery)), int(self.radius), self.size)
         self.motion()
 
     def motion(self):
         self.radius += self.radvel
-
-        
-
 

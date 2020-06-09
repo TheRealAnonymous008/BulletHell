@@ -107,3 +107,4 @@ class Pattern:
         elif not isbelowupper and isabovelower:
             return self.upperbound
     
+

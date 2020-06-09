@@ -3,7 +3,7 @@ import sys
 import pygame
 import math
 import time
-
+import copy
 from bullet import *
 from entities import * 
 from patterns import * 
@@ -23,7 +23,7 @@ def getTarget(dirx, diry, xpos, ypos):
 # Shooter class spawns bullets and projectiles
 # For Creating Bullets which disappear instantly, set Bullet Life to 0.05 and ROF to 50
 
-class Shooter(Entity): 
+class Shooter(Bullet): 
 
     # xpos  and ypos are the corresponding x and y posititons. 
     # xvel and yvel are the corresponding x and y
@@ -37,10 +37,11 @@ class Shooter(Entity):
     # ammo is the number of bullets
 
     def __init__(self):
-        self.color = (255, 255 , 255)
+        Bullet.__init__(self)
+        self.bulletColor = constants.white
         self.rof = 100
         self.bulletctr = 20
-        self.firing = True
+        self.firing = False
         self.bullets = pygame.sprite.Group()
         self.bulletlife = -1
         self.ammo = -1
@@ -83,12 +84,12 @@ class Shooter(Entity):
         self.spokes = 1
         self.angle = 0
         self.aimOffset = 0
-        self.bullet_rules = [True, False, False]
+        self.bullet_rules = [True, False, False, False, True]
 
         self.bulletHomingWeight = 0.01
         self.bulletHomingError = 0
         self.bulletHomingDelay = 0
-        self.bullets_sticky_timer = -1
+        self.bullets_sticky_timer = 0
         
         # Spin rate measured in degrees per second
         self.spinRate = 0
@@ -103,15 +104,45 @@ class Shooter(Entity):
         self.waveradvel = 1
         self.waverad = 1
         self.wavearc = 360
+        self.delay = 0
 
         # Modes: 0 -> Bullets, 1-> Lasers, 2 - > Waves
         self.mode = 0
+        self.bulletorbitAcc = 0
+        self.bulletorbitAngle = 0
+        self.bulletorbitRad = 0
+        self.bulletorbitRadAcc = 0
+        self.bulletorbitRadVel = 0
+        self.bulletOrbitTimer = -1
+        self.bulletOrbitTimerStop = -1
+        self.size = 5
+        self.rules[4] = False
+        self.fireWhenStop= False 
+        self.fireWhenNotStop = False 
+        
+    def setShooterColor(self, color):
+        self.color = color
 
-    # Rules:
-    # 0 -> delete if out of bounds
-    # 1 -> shooter tracks player and aims at them  
+    def setShooterSize(self, size):
+        self.size = size
+    
+    def setBulletsVisible(self, val):
+        self.bullet_rules[4] = val
 
-        Entity.__init__(self)
+    def setBulletsOrbit(self, cond):
+        self.bullet_rules[3] = cond
+
+    def setBulletOrbitParams(self, vel, acc, rad):
+        self.bulletorbitVel = math.radians(vel)
+        self.bulletorbitAcc = math.radians(acc)
+        self.bulletorbitRad = rad
+
+    def setBulletOrbitRadParams(self, vel, acc):
+        self.bulletorbitRadVel = vel
+        self.bulletorbitRadAcc = acc
+
+    def setDelay(self, delay):
+        self.delay = delay
 
     def setWaveRadius(self, rad):
         self.waverad = rad
@@ -198,6 +229,12 @@ class Shooter(Entity):
     def setBullets(self, ctr):
         self.bulletctr =ctr
 
+    def setBulletOrbitTimer(self, timer):
+        self.bulletOrbitTimer = timer
+
+    def setBulletOrbitTimerStop(self, timer):
+        self.bulletOrbitTimerStop = timer
+
     # Create all patterns. Each param is a pattern
 
     def setxvelPattern(self, ptrn):
@@ -225,20 +262,14 @@ class Shooter(Entity):
     def setAmmo(self, ctr):
         self.ammo = ctr
 
-    def setColor(self, color):
-        self.color = color
+    def setBulletColor(self, color):
+        self.bulletcolor = color
 
     # setBulletLife sets the number of ticks before bullets are destroyed
     def setBulletLife(self, life):
-        self.bulletlife = life
+        self.bulletlife = life / 1000
 
     # Motion simulates the movement of the shooter 
-
-    def X(self):
-        return self.xpos
-
-    def Y(self):
-        return self.ypos
 
     def setROF(self, rof):
         self.rof = rof
@@ -274,38 +305,48 @@ class Shooter(Entity):
         self.angle = getTarget(dirx, diry, self.xpos, self.ypos) 
 
     # Reload creates bullet objects
-      
     def reload(self, time):
         size = self.bullet_size
-        time = time - self.birth
+        time = time
         self.rof = self.rofpattern.eval(time / TIME_DECEL, self.rof)
-
+        
+        # Adjust for bullet spinning
         if self.isSpinning:
             self.spinRate = math.radians(self.spinpattern.eval(time / TIME_DECEL, math.degrees(self.spinRate)))
             self.rotation = self.rotation + self.spinRate
 
+        # Add bullet objects
         if self.mode ==  0:
             for i in range(0, self.bulletctr):
                 b = Bullet()
                 self.bullets.add(b)
 
+        # Add laser objects
         elif self.mode == 1:
             for i in range(0, self.bulletctr ):
                 b = Laser()
                 self.bullets.add(b)
 
+        # Add wave objects
         elif self.mode == 2:
             for i in range(0, self.bulletctr):
                 b = Wave()
                 self.bullets.add(b)
 
+        # Add grenade objects:
+        # Note: When Adding Grenade Objects, Make sure to initialize the shooters contained in the grenade
+        # First
+
         j = 0
         for obj in self.bullets:
-            obj.setColor(self.color)
+            obj.setColor(self.bulletcolor)
 
             obj.rules = self.bullet_rules
 
             (a, b, c, d) = self.params
+
+            # Evaluate individual parameters using the pattern specified. If no pattern is specified return
+            # The original value
 
             a =  (self.xvpattern.eval(time, a))
             b =  (self.yvpattern.eval(time, b))
@@ -328,43 +369,57 @@ class Shooter(Entity):
             angle = j  * (self.spokes) +  self.rotation 
             comp = j * (self.spokes) + target
             
+            # Calculate the parameters (x and y pos, vel and acc ) of each bullet
             rfactor = self.targettingWeight *isHoming + 1
             xf = (math.cos(angle + self.angle - self.arc / 2)  + self.targettingWeight * isHoming * math.cos(comp)) / rfactor
             yf = (math.sin(angle + self.angle - self.arc / 2) + self.targettingWeight *  isHoming *math.sin(comp)) / rfactor 
 
             x = self.xpos +  self.inRadius * xf
             y = self.ypos +  self.inRadius * yf
-            obj.setLocation(x, y)
+            
 
             xv = a * xf
             yv = b * yf
             xa = c * xf
             ya = d * yf
-
+            
             obj.setParams(xv, yv, xa, ya)
+            
+            if self.bullet_rules[3]:
+                obj.setOrbitParams(self.bulletorbitVel, self.bulletorbitAcc, self.bulletorbitRad, x, y, angle)
+                obj.setOrbitRadParams(self.bulletorbitRadVel, self.bulletorbitRadAcc)
+                obj.setOrbitTimer(self.bulletOrbitTimer)
+                obj.setOrbitTimerStop(self.bulletOrbitTimerStop)
+                obj.isOrbit = True
+            
+            obj.setLocation(x, y)
+
             obj.setLife(self.bulletlife)
             obj.setSize(self.bullet_size)
             obj.setBirth(time)
             
+            # Adjust for laser parameters
             if self.mode == 1:
                 obj.setAngle(angle + self.angle - self.arc / 2)
                 obj.setLaserSpinRate(self.laserspinrate)
 
+            # Adjust for wave parameters
             if self.mode == 2:
                 obj.setWaveParams(x, y, self.wavearc, self.waverad, self.waveradvel, self.rotation)
+                obj.size = self.bullet_size
 
+            # Adjust for homing parameters
             if self.bullet_rules[1]:
                 obj.setHomingWeight(self.bulletHomingWeight)
                 obj.setHomingError(self.bulletHomingError)
                 obj.setHomingDelay(self.bulletHomingDelay)
 
+            # Adjust for sticky parameters
             if self.bullet_rules[2]:
                 obj.setStickyTimer(self.bullets_sticky_timer)
                 obj.setStickyTimerStop(self.bullets_sticky_timer_stop)
 
             j = j + 1
-
-        self.motion()
 
     # Frees up space for next set of bullets
 
