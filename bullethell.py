@@ -13,6 +13,7 @@ from player import *
 from pygame.locals import DOUBLEBUF
 from pygame.locals import HWSURFACE
 
+
 # Initialize all constants
 
 white = constants.white
@@ -37,7 +38,7 @@ playarea.set_alpha(0)
 playarea.fill(black)
 pygame.mouse.set_cursor((8,8),(0,0),(0,0,0,0,0,0,0,0),(0,0,0,0,0,0,0,0))
 
-fps = 60
+fps = constants.FPS
 
 # Initializing all entities
 
@@ -134,34 +135,54 @@ def displayBullets():
             s.isVisible = False
         else:
             s.motion()
+        
+        if s.xpos - s.size > SWIDTH or s.ypos - s.size > SHEIGHT or s.xpos + s.size < 0 or s.ypos + s.size < 0:
+            if s.isdeleteIfOut() == True:
+                bulletsDisplayed.remove(s)
+                shooters.remove(s)
+                del s
+                continue
+            else:
+                entitiesOffScreen.add(s)
+                bulletsDisplayed.remove(s)
 
-        if CURRENT_TIME  <= s.birth + s.delay and s.delay != 0:
-            continue
-        if s.fireWhenStop and not s.isSticky:
-            continue
-        if s.fireWhenNotStop and s.isSticky:
-            continue
+        if s.ammo != 0:
+            if CURRENT_TIME  <= s.birth + s.delay and s.delay != 0: 
+                continue
+            if s.fireWhenStop and not s.isSticky:
+                continue
+            if s.fireWhenNotStop and s.isSticky:
+                continue
         
         if s.ammo == 0  or (CURRENT_TIME - s.birth ==s.life and s.life != -1 ):
             shooters.remove(s)
             bulletsDisplayed.remove(s)
             del s
-        elif random.randrange(0, fps) == 1 and not s.isAuto:
-            s.reload(CURRENT_TIME)
-            if s.ammo != -1:
-                s.setAmmo(s.ammo - 1)
-        elif s.nextTime - CURRENT_TIME <= 0 and s.isAuto:
-            s.nextTime = CURRENT_TIME + s.rof
-            s.reload(CURRENT_TIME)
-            if s.ammo != -1:
-                s.setAmmo(s.ammo - 1)
-
-        try:
-            for b in s.bullets:
-                bulletsDisplayed.add(b)
-            s.expend()
-        except:
             continue
+        elif random.randrange(0, fps) == 1 and not s.isAuto and s.randomizedFire == False:
+            s.reload(CURRENT_TIME)
+            if s.ammo != -1 :
+                s.setAmmo(s.ammo - 1)          
+        elif s.nextTime - CURRENT_TIME <= 0 and s.isAuto:
+            s.reload(CURRENT_TIME)
+            s.nextTime = CURRENT_TIME + s.burstDelay
+            s.bulletsLeftPerBurst -=1
+            if(s.bulletsLeftPerBurst == 0):
+                s.nextTime = CURRENT_TIME + s.rof 
+                if s.ammo != -1:
+                    s.setAmmo(s.ammo - 1)
+                s.bulletsLeftPerBurst = s.burstSize
+        
+        # Add the spawned shooters to shooters list if the shooter is of mode 3
+
+        if s.mode == 3:
+            for i in s.bullets:
+                shooters.add(i)
+                i.motion()
+
+        for b in s.bullets:
+            bulletsDisplayed.add(b)
+        s.expend()
 
 # Update bullets not on Screen
 def updatebullets(b, screen , SWIDTH, SHEIGHT):

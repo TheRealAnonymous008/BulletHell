@@ -120,6 +120,76 @@ class Shooter(Bullet):
         self.fireWhenStop= False 
         self.fireWhenNotStop = False 
         
+        # For "grenade" mode. Contains a list of shooters to fire. Each shooter gets deep copied so that there are bulletctr number of shooters
+        self.shooterList = []
+
+        # For oscillations
+        self.isOscillating = False
+        self.minangle = 0
+        self.maxangle = 0
+
+        # For random delays
+        self.isRandomDelay = False
+        self.mindelay = 0
+        self.maxdelay = 0
+
+        #Sync allows all fired shooters to fire simultaneously
+        self.syncShooters = False
+        self.mindelayShooters = 0
+        self.maxdelayShooters = 0
+
+        #If shooter symmetry is true, then each shooter (for mode 3 firing) will fire radially symmetric with respect to each
+        #other. If not, then they will fire based on their specified target
+
+        self.shooterSymmetry = True
+        
+        # Burst Size controls how many bullets are fired consecutively per shot.
+
+        self.burstSize = 1
+        self.burstDelay = 0 
+
+        # Randomized fire determines whether or not a bullet is to be fired if automatic fire is disabled (i.e., the bullets
+        # have a 1 / rof chance of spawning)
+
+        self.bulletsLeftPerBurst = 1
+
+    def setBurstParams(self, burstsize, burstdelay):
+        self.burstSize = burstsize
+        self.burstDelay = burstdelay
+        self.bulletsLeftPerBurst = burstsize
+
+    def setFireWhenStop(self, val):
+        self.fireWhenStop = val
+    
+    def setFireWhenNotStop(self, val):
+        self.fireWhenNotStop = val
+
+    def setShooterSymmetry(self, val):
+        self.shooterSymmetry = val
+
+    def setSync(self, mindelay, maxdelay):
+        self.syncShooters = True
+        self.mindelayShooters = mindelay
+        self.maxdelayShooters = maxdelay
+
+    def setDelayRange(self, mindelay, maxdelay):
+        self.isRandomDelay = True
+        self.mindelay = mindelay
+        self.maxdelay = maxdelay
+
+
+    def setIsOscillating(self, val):
+        self.isOscillating = val
+        self.isSpinning = val
+
+    # Min angle and Max Angle are in Degrees
+    def setOscillationBounds(self, minangle, maxangle):
+        self.minangle = math.radians(minangle)
+        self.maxangle = math.radians(maxangle)
+
+    def addShooter(self, shooter):
+        self.shooterList.append(shooter)
+
     def setShooterColor(self, color):
         self.color = color
 
@@ -263,7 +333,7 @@ class Shooter(Bullet):
         self.ammo = ctr
 
     def setBulletColor(self, color):
-        self.bulletcolor = color
+        self.bulletColor = color
 
     # setBulletLife sets the number of ticks before bullets are destroyed
     def setBulletLife(self, life):
@@ -307,12 +377,27 @@ class Shooter(Bullet):
     # Reload creates bullet objects
     def reload(self, time):
         size = self.bullet_size
-        time = time
+        shooterdelay = 0
         self.rof = self.rofpattern.eval(time / TIME_DECEL, self.rof)
+
+        # If the delay is to be random, change delay upon reload
+
+        if self.isRandomDelay:
+            self.delay = random.randrange(self.mindelay, self.maxdelay)
+        if self.syncShooters:
+            shooterdelay = random.randrange(self.mindelayShooters, self.maxdelayShooters)
+
         
         # Adjust for bullet spinning
+
         if self.isSpinning:
             self.spinRate = math.radians(self.spinpattern.eval(time / TIME_DECEL, math.degrees(self.spinRate)))
+
+            if(self.isOscillating):
+                if(self.rotation <= self.minangle or self.rotation >= self.maxangle):
+                    self.spinRate = self.spinRate * -1
+                    
+                    
             self.rotation = self.rotation + self.spinRate
 
         # Add bullet objects
@@ -333,13 +418,17 @@ class Shooter(Bullet):
                 b = Wave()
                 self.bullets.add(b)
 
-        # Add grenade objects:
-        # Note: When Adding Grenade Objects, Make sure to initialize the shooters contained in the grenade
-        # First
+
+        #Add shooters
+        elif self.mode == 3:
+            for i in range(0, self.bulletctr):
+                for j in self.shooterList:
+                    s = copy.deepcopy(j)
+                    self.bullets.add(s)
 
         j = 0
         for obj in self.bullets:
-            obj.setColor(self.bulletcolor)
+            obj.setColor(self.bulletColor)
 
             obj.rules = self.bullet_rules
 
@@ -404,9 +493,19 @@ class Shooter(Bullet):
                 obj.setLaserSpinRate(self.laserspinrate)
 
             # Adjust for wave parameters
-            if self.mode == 2:
+            elif self.mode == 2:
                 obj.setWaveParams(x, y, self.wavearc, self.waverad, self.waveradvel, self.rotation)
                 obj.size = self.bullet_size
+
+            elif self.mode == 3:
+
+                if self.shooterSymmetry:
+                    obj.angle = angle
+
+                if obj.isRandomDelay and not self.syncShooters:
+                    obj.delay = random.randrange(obj.mindelay, obj.maxdelay)
+                elif self.syncShooters:
+                    obj.delay = shooterdelay
 
             # Adjust for homing parameters
             if self.bullet_rules[1]:

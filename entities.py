@@ -61,6 +61,7 @@ class Entity(pygame.sprite.Sprite):
         self.stop = False
         self.lastStopTime = 0
 
+
         # Delay Array Update -> If False, do not Update the current Delay
 
     def setMotionDelay(self, time):
