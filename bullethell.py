@@ -73,17 +73,11 @@ def showBulletCtr():
 # Function to Draw the Bullets
 def checkbounds(b, screen, SWIDTH, SHEIGHT):
     t = pygame.time.get_ticks() - b.birth
-    # Set the bullet to Homing if time is up
+    # Set the bullet to Homing if time is up2
     if b.homingDelay <= t and b.rules[1] == True: 
         b.isHoming = True
 
     # Set bullet to sticky if time is up and not sticky if it exceeds duration of sticky 
-    if b.stickyTimer <=t and b.rules[2] == True and ((b.stickyTimer != -1 and b.stickyTimerStop >= t) or b.stickyTimerStop == -1):
-        b.isSticky = True
-    elif b.rules[2] and random.randrange(0, fps) == 1 and b.stickyTimer == -1: 
-        b.isSticky = True
-    else:
-        b.isSticky = False
 
     if b.motion_delay >= t - b.lastStopTime and b.motion_delay != -1:
         b.isSticky = True
@@ -92,6 +86,14 @@ def checkbounds(b, screen, SWIDTH, SHEIGHT):
         if b.stop: 
             b.lastStopTime = t
             b.stop = False
+
+    if b.stickyTimer <=t and b.rules[2] == True and ((b.stickyTimer != -1 and b.stickyTimerStop >= t) or b.stickyTimerStop == -1):   
+        b.isSticky = True
+    elif b.rules[2] and random.randrange(0, fps) == 1 and b.stickyTimer == -1: 
+        b.isSticky = True
+    else:
+        b.isSticky = False
+
 
     # Set bullet to orbit if time is up and not orbit if it exceeds duration of orbit
     if b.rules[3] == True and b.orbitTimer <= t and( (t <= b.orbitTimerStop and b.orbitTimerStop != -1) or b.orbitTimerStop == -1):
@@ -162,7 +164,8 @@ def displayBullets():
         elif random.randrange(0, fps) == 1 and not s.isAuto and s.randomizedFire == False:
             s.reload(CURRENT_TIME)
             if s.ammo != -1 :
-                s.setAmmo(s.ammo - 1)          
+                s.setAmmo(s.ammo - 1)
+            
         elif s.nextTime - CURRENT_TIME <= 0 and s.isAuto:
             s.reload(CURRENT_TIME)
             s.nextTime = CURRENT_TIME + s.burstDelay

@@ -152,10 +152,10 @@ class Entity(pygame.sprite.Sprite):
         
         # Check if Sticky, if yes then immediately stop 
 
-        if self.isSticky: 
+        if self.isSticky:
             return
 
-        if self.isOrbit:
+        elif self.isOrbit:
             self.xpos = (self.orbitCenterx + self.orbitRad * math.cos(self.orbitAngle))
             self.ypos = (self.orbitCentery + self.orbitRad * math.sin(self.orbitAngle))
             self.orbitAngle += self.orbitVel
@@ -163,7 +163,7 @@ class Entity(pygame.sprite.Sprite):
             self.orbitRad += self.orbitRadVel
             self.orbitRadVel += self.orbitRadAcc
 
-        elif not self.polyMove:
+        elif not self.polyMove and not self.isOrbit:
             mousex, mousey = pygame.mouse.get_pos()
             target = 0
             ctarget = 0
@@ -184,7 +184,7 @@ class Entity(pygame.sprite.Sprite):
             r = self.xpos
             s = self.ypos
             (p, q) = self.polyMoveArray[self.currvertex]
-            if math.sqrt((r - p) * (r-p) + (s - q) * (s- q)) <= math.sqrt(self.xvel * self.xvel + self.yvel + self.yvel):
+            if math.sqrt((r - p) * (r-p) + (s - q) * (s- q)) <= math.sqrt(self.xvel * self.xvel + self.yvel * self.yvel):
                 a = self.currvertex + 2
                 self.currvertex = self.currvertex + 1
                 if self.currvertex >= len(self.polyMoveArray) and not self.polyMoveLoop:

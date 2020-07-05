@@ -51,11 +51,15 @@ class Bullet(Entity):
 
         size = self.size
         if(x - size <-1* OFFSET or y - size < -1 * OFFSET or x + size > SWIDTH + OFFSET or y + size > SHEIGHT + OFFSET):
+            
             self.motion()
-            return 
+            print("This ran")
+            return
+
         else:
             pygame.draw.circle(screen, self.color, (x, y), self.size)
             self.motion()
+            
 
 class Laser(Bullet):
 

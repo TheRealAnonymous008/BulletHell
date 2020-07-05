@@ -15,12 +15,3 @@ SHEIGHT = 600
 OFFSET = 200
 TIME_DECEL = 1000
 FPS = 60
-
-BUFFERCTR = 0
-LASTBUFFER = 0
-
-def updateBufferCtr(val):
-    BUFFERCTR = val 
-
-def updateLastBuffer(val):
-    LASTBUFFER = val
