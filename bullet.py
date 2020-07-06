@@ -37,7 +37,7 @@ class Bullet(Entity):
     # Number of ticks before bullet disappears
 
     def setLife(self, life):
-        self.life = life * FPS
+        self.life = life
 
     def setColor(self, color):
         self.color = color 
@@ -45,20 +45,18 @@ class Bullet(Entity):
     def setSize(self, size):
         self.size = size
 
-    def draw(self, screen):
+    def draw(self, screen, time):
         x = int(self.xpos)
         y = int(self.ypos)
 
         size = self.size
         if(x - size <-1* OFFSET or y - size < -1 * OFFSET or x + size > SWIDTH + OFFSET or y + size > SHEIGHT + OFFSET):
-            
-            self.motion()
-            print("This ran")
+            self.motion(time)
             return
 
         else:
             pygame.draw.circle(screen, self.color, (x, y), self.size)
-            self.motion()
+            self.motion(time)
             
 
 class Laser(Bullet):
@@ -119,6 +117,7 @@ class Wave(Bullet):
             pygame.draw.arc(screen, self.color, (self.centerx - self.radius, self. centery - self.radius, 2 * self.radius, 2*  self.radius), self.rotation, self.rotation + self.arc, self.size)
         else:
             pygame.draw.circle(screen, self.color, (int(self.centerx), int(self.centery)), int(self.radius), self.size)
+
         self.motion()
 
     def motion(self):

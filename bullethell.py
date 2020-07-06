@@ -7,7 +7,6 @@ import entities
 import constants
 from bullet import *
 from shooter import *
-from patterns import *
 from presets import * 
 from player import * 
 from pygame.locals import DOUBLEBUF
@@ -74,9 +73,10 @@ def showBulletCtr():
 def checkbounds(b, screen, SWIDTH, SHEIGHT):
     t = pygame.time.get_ticks() - b.birth
     # Set the bullet to Homing if time is up2
-    if b.homingDelay <= t and b.rules[1] == True: 
+    if b.homingDelay <= t and((b.homeTime + b.homingDelay >= t and b.homeTime != -1) or b.homeTime == -1 )and b.rules[1] == True: 
         b.isHoming = True
-
+    else:
+        b.isHoming = False
     # Set bullet to sticky if time is up and not sticky if it exceeds duration of sticky 
 
     if b.motion_delay >= t - b.lastStopTime and b.motion_delay != -1:
@@ -120,9 +120,7 @@ def checkbounds(b, screen, SWIDTH, SHEIGHT):
         bulletsDisplayed.remove(b)
         del b
     else: 
-        b.draw(screen)
-        if b.life != -1:
-            b.life -= 1
+        b.draw(screen, t)
 
 # Function to add the bullets to displayedbullets array
 
@@ -136,7 +134,7 @@ def displayBullets():
             bulletsDisplayed.add(s)
             s.isVisible = False
         else:
-            s.motion()
+            s.motion(CURRENT_TIME - s.birth)
         
         if s.xpos - s.size > SWIDTH or s.ypos - s.size > SHEIGHT or s.xpos + s.size < 0 or s.ypos + s.size < 0:
             if s.isdeleteIfOut() == True:
@@ -156,7 +154,7 @@ def displayBullets():
             if s.fireWhenNotStop and s.isSticky:
                 continue
         
-        if s.ammo == 0  or (CURRENT_TIME - s.birth ==s.life and s.life != -1 ):
+        if s.ammo == 0  or (s.life == 0):
             shooters.remove(s)
             bulletsDisplayed.remove(s)
             del s
@@ -164,7 +162,7 @@ def displayBullets():
         elif random.randrange(0, fps) == 1 and not s.isAuto and s.randomizedFire == False:
             s.reload(CURRENT_TIME)
             if s.ammo != -1 :
-                s.setAmmo(s.ammo - 1)
+                s.ammo = s.ammo - 1
             
         elif s.nextTime - CURRENT_TIME <= 0 and s.isAuto:
             s.reload(CURRENT_TIME)
@@ -173,7 +171,7 @@ def displayBullets():
             if(s.bulletsLeftPerBurst == 0):
                 s.nextTime = CURRENT_TIME + s.rof 
                 if s.ammo != -1:
-                    s.setAmmo(s.ammo - 1)
+                    s.ammo = s.ammo - 1
                 s.bulletsLeftPerBurst = s.burstSize
         
         # Add the spawned shooters to shooters list if the shooter is of mode 3
@@ -181,7 +179,7 @@ def displayBullets():
         if s.mode == 3:
             for i in s.bullets:
                 shooters.add(i)
-                i.motion()
+                i.motion(CURRENT_TIME -i.birth)
 
         for b in s.bullets:
             bulletsDisplayed.add(b)
@@ -200,11 +198,11 @@ def updatebullets(b, screen , SWIDTH, SHEIGHT):
         entitiesOffScreen.remove(b)
         checkbounds(b, screen, SWIDTH, SHEIGHT) 
 
-    if  pygame.time.get_ticks() - b.birth == b.life  and b.life != -1:
+    if  b.life == 0 :
         entitiesOffScreen.remove(b)
         del b
     else: 
-        b.draw(playarea)
+        b.draw(playarea, pygame.time.get_ticks())
 
 # Draw and Motions
 def main():
@@ -230,7 +228,7 @@ def main():
         pygame.display.flip()
 
     while True:
-        clock.tick(fps)
+        clock.tick_busy_loop(fps)
         CURRENT_TIME = pygame.time.get_ticks()
 
         for event in pygame.event.get():

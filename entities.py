@@ -2,11 +2,23 @@ import math
 import constants
 import pygame
 
+from timeiterator import *
+
 def getTarget(dirx, diry, xpos, ypos):
     return math.atan2((diry - ypos), (dirx - xpos))
 
 class Entity(pygame.sprite.Sprite):
     def __init__ (self):
+        
+        # Initial values:
+
+        self.xposi = 0
+        self.yposi = 0
+        self.xveli = 0
+        self.yveli = 0
+
+        # Necessary Values
+
         self.xpos = 0
         self.ypos = 0
         self.xvel = 0
@@ -24,7 +36,7 @@ class Entity(pygame.sprite.Sprite):
         self.rules = [True, False, False, False, True]
         self.life  = -1
         self.birth  = 0
-        self.homingWeight = 0.01
+        self.homingWeight = 1000
         self.homingError = 0
         self.homingDelay = -1
         self.isHoming = False
@@ -46,6 +58,12 @@ class Entity(pygame.sprite.Sprite):
         self.orbitRadVel = 0
         self.orbitRadAcc =0
 
+        # Initial Orbit Params
+        self.orbitVeli = 0
+        self.orbitAnglei = 0
+        self.orbitRadi = 0
+        self.orbitRadveli = 0
+
         self.visibleTimerStop = -1
         self.isVisible = True
         pygame.sprite.Sprite.__init__(self)
@@ -61,8 +79,14 @@ class Entity(pygame.sprite.Sprite):
         self.stop = False
         self.lastStopTime = 0
 
+        # Keep Track of the time when sticky was activated
+        self.lastStickyTime = None
 
-        # Delay Array Update -> If False, do not Update the current Delay
+        self.homeTime = -1
+        self.stopHoming = False
+
+    def setHomeTime(self, time):
+        self.hometime = time
 
     def setMotionDelay(self, time):
         self.motion_delay = time
@@ -124,44 +148,61 @@ class Entity(pygame.sprite.Sprite):
 
     def setLocation(self, xpos, ypos):
         if not self.isOrbit or self.orbitTimer != -1:
+            self.xposi = xpos
             self.xpos = xpos
             self.ypos = ypos
-            self.addVertex((self.xpos, self.ypos))
+            self.yposi = ypos
+            self.addVertex((self.xposi, self.yposi))
         else:
             self.isOrbit = False
 
     def setParams(self, xvel, yvel, xacc, yacc):
-        self.xvel = xvel
-        self.yvel = yvel
+        self.xveli = xvel
+        self.yveli = yvel
         self.xacc = xacc / 100
         self.yacc = yacc / 100
 
     def setOrbitParams(self, vel, acc, rad, centerx, centery, angle0):
-        self.orbitVel = math.radians(vel)
-        self.orbitAcc = math.radians(acc) / 100
+        self.orbitVel = vel * 4
+        self.orbitAcc = acc / 100
         self.orbitRad = rad
         self.orbitCenterx = centerx
         self.orbitCentery = centery
         self.orbitAngle = angle0
 
-    def setOrbitRadParams(self, vel, acc):
-        self.orbitRadVel = vel
-        self.orbitRadAcc = acc / 100
+        self.orbitAnglei = self.orbitAngle
+        self.orbitVeli = self.orbitVel
+        self.orbitRadi = rad
 
-    def motion(self):
-        
+    def setOrbitRadParams(self, vel, acc):
+        self.orbitRadVel = vel 
+        self.orbitRadAcc = acc / 100 
+        self.orbitRadveli = vel
+
+    def motion(self, time):
         # Check if Sticky, if yes then immediately stop 
+        if not self.isSticky and self.lastStickyTime != None:
+            time = time / constants.FPS - self.lastStickyTime
+        else:
+            time = time /constants.FPS
+        
+        # Check for Life
+        if time >= self.life / constants.FPS and self.life != -1:
+            self.life = 0
 
         if self.isSticky:
+            self.lastStickyTime = time
             return
 
         elif self.isOrbit:
-            self.xpos = (self.orbitCenterx + self.orbitRad * math.cos(self.orbitAngle))
-            self.ypos = (self.orbitCentery + self.orbitRad * math.sin(self.orbitAngle))
-            self.orbitAngle += self.orbitVel
-            self.orbitVel += self.orbitAcc
-            self.orbitRad += self.orbitRadVel
-            self.orbitRadVel += self.orbitRadAcc
+            self.xpos = (self.orbitCenterx + self.orbitRad * math.cos(math.radians(self.orbitAngle)))
+            self.ypos = (self.orbitCentery + self.orbitRad * math.sin(math.radians(self.orbitAngle)))
+
+
+            self.orbitAngle = self.orbitAnglei + self.orbitVel * time
+            self.orbitVel = self.orbitVeli + self.orbitAcc * time
+            self.orbitRad = self.orbitRadi + self.orbitRadVel * time
+            self.orbitRadVel = self.orbitRadveli * self.orbitRadAcc * time
 
         elif not self.polyMove and not self.isOrbit:
             mousex, mousey = pygame.mouse.get_pos()
@@ -173,10 +214,11 @@ class Entity(pygame.sprite.Sprite):
                 ctarget = self.orbitAngle
 
             rfactor = self.homingWeight * int(self.isHoming) + 1
-            self.xpos = (self.xpos + self.xvel) 
-            self.ypos = (self.ypos + self.yvel) 
-            self.xvel = (self.xvel + self.xacc )    
-            self.yvel = (self.yvel + self.yacc) 
+            rfactor = 1
+            self.xpos = (self.xposi + self.xvel * time) 
+            self.ypos = (self.yposi + self.yvel * time) 
+            self.xvel = (self.xveli + self.xacc * time)    
+            self.yvel = (self.yveli + self.yacc * time) 
             self.xacc = (self.xacc + self.homingWeight * int(self.isHoming) * math.cos(target))/ rfactor
             self.yacc = (self.yacc + self.homingWeight * int(self.isHoming) * math.sin(target))/rfactor
 
@@ -206,12 +248,12 @@ class Entity(pygame.sprite.Sprite):
                 self.target = getTarget(p, q, self.xpos, self.ypos)
                 self.stop = True 
 
-            self.xpos = self.xpos + self.xvel * math.cos(self.target) 
-            self.ypos = self.ypos + self.yvel * math.sin(self.target)
-            self.xvel = abs  (self.xvel + self.xacc) 
+            self.xpos = self.xposi + self.xvel * math.cos(self.target) *time
+            self.ypos = self.yposi + self.yvel * math.sin(self.target) * time
+            self.xvel = abs  (self.xveli + self.xacc * time) 
             self.xacc = self.xacc * math.cos(self.target)
 
-            self.yvel = abs (self.yvel + self.yacc) 
+            self.yvel = abs (self.yveli + self.yacc * time) 
             self.yacc = self.yacc * math.sin(self.target) 
 
 

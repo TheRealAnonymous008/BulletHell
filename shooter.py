@@ -6,7 +6,6 @@ import time
 import copy
 from bullet import *
 from entities import * 
-from patterns import * 
 from timeiterator import *
 import constants
 
@@ -42,24 +41,13 @@ class Shooter(Bullet):
         Bullet.__init__(self)
         self.bulletColor = constants.white
         self.rof = 100
+        self.rofIter = TimeIterator()
         self.bulletctr = 20
         self.firing = False
         self.bullets = pygame.sprite.Group()
         self.bulletlife = -1
         self.ammo = -1
         self.nextTime = 0 
-        self.xvpattern = Pattern(0)
-        self.yvpattern = Pattern(0)
-        self.xapattern = Pattern(0)
-        self.yapattern = Pattern(0)
-        self.rofpattern = Pattern(0)
-        self.spinpattern = Pattern(0)
-
-        self.xvtpattern = Pattern(0)
-        self.yvtpattern = Pattern(0)
-        self.xatpattern = Pattern(0)
-        self.yatpattern = Pattern(0)
-
         self.bullet_size = defualt_bullet_size
         self.bullets_sticky_timer_stop = -1
 
@@ -80,7 +68,11 @@ class Shooter(Bullet):
         # Of the bullet. Arc determines the arc of the bullet, rotation controls the rotational offset
         # And spokes determines how many bullets are fired
         
-        self.params = (0, 0, 0, 0)
+        self.bulletxveliter = TimeIterator()
+        self.bulletyveliter = TimeIterator()
+        self.bulletxacciter = TimeIterator()
+        self.bulletyacciter = TimeIterator()
+
         self.arcIter = TimeIterator()
         self.rotationIter = TimeIterator()
         self.spokes = 1
@@ -94,7 +86,7 @@ class Shooter(Bullet):
         self.bullets_sticky_timer = 0
         
         # Spin rate measured in degrees per second
-        self.spinRate = 0
+        self.spinRate = TimeIterator()
 
         # Is Targetting Tracks the player
         # Is Auto automatically fires at the target
@@ -163,6 +155,8 @@ class Shooter(Bullet):
         self.bulletsLeftPerBurst = 1
 
         self.bulletctriter = TimeIterator()
+
+        self.bullethometime = 100
 
     def setBulletCtrRepeating(self, val):
         self.bulletctriter.repeating = val
@@ -292,30 +286,28 @@ class Shooter(Bullet):
     def setLaserSpinRate(self, val):
         self.laserspinrate = val
 
-    def setBulletsHoming(self, val):
+    def setBulletsHoming(self, val, timehoming = -1):
         self.bullet_rules[1] = val
+        self.bullethometime = timehoming
 
     def setBulletSize(self, size):
         self.bullet_size = size
 
-    def setSpinPattern(self, ptrn):
-        self.spinpattern = ptrn
-        
-    def setIsSpinning(self, val):
-        self.isSpinning = val
-    
-    def getIsSpinning(self, val):
-        return self.isSpinning
+    def setSpinParams(self, spinrate, spinaccel = 0, spinratelowerbound = None, spinrateupperbound = None, spinrateOscillating = False, spinrateRepeating = False):
+        self.spinRate.value = -1 * math.radians(spinrate)
+        self.spinRate.rate = -1 * math.radians(spinaccel)
+        if spinratelowerbound != None:
+            self.spinRate.lowerbound = math.radians(spinratelowerbound)
 
-    def setSpinRate(self, spinrate):
-        self.spinRate = -1 * math.radians(spinrate)
+        if spinrateupperbound != None:
+            self.spinRate.upperbound = math.radians(spinrateupperbound)
+        self.spinRate.oscillating = spinrateOscillating
+        self.spinRate.repeating = spinrateRepeating
+        self.isSpinning = True
 
     def setIsAuto(self, val):
         self.isAuto = val
         self.nextTime = self.birth + self.rof
-
-    def getIsAuto(self):
-        return self.isAuto
 
     def setAimOffset(self, offset):
         self.aimOffset = math.radians(offset) 
@@ -350,30 +342,6 @@ class Shooter(Bullet):
     def setBulletOrbitTimerStop(self, timer):
         self.bulletOrbitTimerStop = timer
 
-    # Create all patterns. Each param is a pattern
-
-    def setxvelPattern(self, ptrn):
-        self.xvpattern = ptrn
-    def setyvelPattern(self, ptrn):
-        self.yvpattern = ptrn
-    def setxaccPattern(self, ptrn):
-        self.xapattern = ptrn
-    def setyaccPattern(self, ptrn):
-        self.yapattern = ptrn
-
-    def setxveltimePattern(self, ptrn):
-        self.xvtpattern = ptrn
-    def setyveltimePattern(self, ptrn):
-        self.yvtpattern = ptrn
-    def setxacctimePattern(self, ptrn):
-        self.xatpattern = ptrn
-    def setyacctimePattern(self, ptrn):
-        self.yatpattern = ptrn
-
-
-    def setrofPattern(self, ptrn):
-        self.rofpattern = ptrn
-
     def setAmmo(self, ctr):
         self.ammo = ctr
 
@@ -382,12 +350,22 @@ class Shooter(Bullet):
 
     # setBulletLife sets the number of ticks before bullets are destroyed
     def setBulletLife(self, life):
-        self.bulletlife = life / 1000
+        self.bulletlife = life
 
     # Motion simulates the movement of the shooter 
 
-    def setROF(self, rof):
+    def setROF(self, rof, rofrate = 0, roflbound = None, rofubound = None, rofOscillates = False, rofRepeats = False):
         self.rof = rof
+        self.rofIter.value = rof
+
+        if roflbound != None:
+            self.rofIter.lowerbound = roflbound
+        if rofubound != None:
+            self.rofIter.upperbound = rofubound 
+
+        self.rofIter.rate = rofrate
+        self.rofIter.oscillating = rofOscillates
+        self.rofIter.repeating = rofRepeats
 
     def setFiring(self, cond):
         self.firing = cond
@@ -406,13 +384,69 @@ class Shooter(Bullet):
         else:
             self.spokes = self.arcIter.value / (spokes - 1)   
         
-        self.bulletctr= int(spokes) 
+        self.bulletctr= spokes
 
 
     # setBulletParams adjusts the x and y velocities and accelerations of bullets created by the object
 
     def setBulletParams(self, xv, yv, xa, ya):
-        self.params = (xv, yv, xa, ya)
+        self.bulletxveliter.value = xv
+        self.bulletyveliter.value = yv
+        self.bulletxacciter.value = xa
+        self.bulletyacciter.value = ya
+
+    # Configure each paramiterator
+    def configBulletxvel(self, rate = 0, lbound = None, ubound = None , oscillates = False, repeats = False):
+        self.bulletxveliter.rate = rate
+        
+        if lbound != None:
+            self.bulletxveliter.lowerbound = lbound
+
+        if ubound != None:
+            self.bulletxveliter.upperbound = ubound
+
+        self.bulletxveliter.oscillating = oscillates
+        self.bulletxveliter.repeating = repeats
+
+
+    
+    def configBulletyvel(self, rate = 0, lbound = None, ubound = None , oscillates = False, repeats = False):
+        self.bulletyveliter.rate = rate
+        
+        if lbound != None:
+            self.bulletyveliter.lowerbound = lbound
+
+        if ubound != None:
+            self.bulletyveliter.upperbound = ubound
+
+        self.bulletyveliter.oscillating = oscillates
+        self.bulletyveliter.repeating = repeats
+    
+    
+    def configBulletxacc(self, rate = 0, lbound = None, ubound = None , oscillates = False, repeats = False):
+        self.bulletxacciter.rate = rate
+        
+        if lbound != None:
+            self.bulletxacciter.lowerbound = lbound
+
+        if ubound != None:
+            self.bulletyveliter.upperbound = ubound
+
+        self.bulletxacciter.oscillating = oscillates
+        self.bulletxacciter.repeating = repeats
+    
+    
+    def configBulletyacc(self, rate = 0, lbound = None, ubound = None , oscillates = False, repeats = False):
+        self.bulletyacciter.rate = rate
+        
+        if lbound != None:
+            self.bulletyacciter.lowerbound = lbound
+
+        if ubound != None:
+            self.bulletyacciter.upperbound = ubound
+
+        self.bulletyacciter.oscillating = oscillates
+        self.bulletyacciter.repeating = repeats
 
     # setAngle takes in angle as a parameter and sets that as the angle of tthe shooter
 
@@ -428,7 +462,9 @@ class Shooter(Bullet):
     def reload(self, time):
         size = self.bullet_size
         shooterdelay = 0
-        self.rof = self.rofpattern.eval(time / TIME_DECEL, self.rof)
+        self.rofIter.update()
+        self.rof = self.rofIter.value
+
 
         # If the delay is to be random, change delay upon reload
 
@@ -437,28 +473,29 @@ class Shooter(Bullet):
         if self.syncShooters:
             shooterdelay = random.randrange(self.mindelayShooters, self.maxdelayShooters)
 
+        bulletno = int(self.bulletctr)
         # Add bullet objects
         if self.mode ==  0:
-            for i in range(0, self.bulletctr):
+            for i in range(0, bulletno):
                 b = Bullet()
                 self.bullets.add(b)
 
         # Add laser objects
         elif self.mode == 1:
-            for i in range(0, self.bulletctr ):
+            for i in range(0, bulletno ):
                 b = Laser()
                 self.bullets.add(b)
 
         # Add wave objects
         elif self.mode == 2:
-            for i in range(0, self.bulletctr):
+            for i in range(0, bulletno):
                 b = Wave()
                 self.bullets.add(b)
 
 
         #Add shooters
         elif self.mode == 3:
-            for i in range(0, self.bulletctr):
+            for i in range(0, bulletno):
                 for j in self.shooterList:
                     s = copy.deepcopy(j)
                     self.bullets.add(s)
@@ -469,15 +506,10 @@ class Shooter(Bullet):
 
             obj.rules = self.bullet_rules
 
-            (a, b, c, d) = self.params
-
-            # Evaluate individual parameters using the pattern specified. If no pattern is specified return
-            # The original value
-
-            a =  (self.xvpattern.eval(time, a))
-            b =  (self.yvpattern.eval(time, b))
-            c =  (self.xapattern.eval(time, c))
-            d =  (self.yapattern.eval(time, d))
+            a =  self.bulletxveliter.value
+            b =  self.bulletyveliter.value
+            c =  self.bulletxacciter.value
+            d =  self.bulletyacciter.value
 
             isHoming = int(self.isTargetting) 
 
@@ -504,7 +536,7 @@ class Shooter(Bullet):
                 target = math.radians(random.randrange(minimum, maximum))
     
             angle = j  * (self.spokes) +  self.rotationIter.value
-            if self.bulletctr == 1:
+            if bulletno == 1:
                 angle = self.arcIter.value / 2 + self.rotationIter.value
             comp = j * (self.spokes) + target
 
@@ -548,6 +580,7 @@ class Shooter(Bullet):
             # Adjust for homing parameters
             if self.bullet_rules[1]:
                 obj.setHomingWeight(self.bulletHomingWeight)
+                obj.setHomeTime(self.bullethometime)
                 obj.setHomingError(self.bulletHomingError)
                 obj.setHomingDelay(self.bulletHomingDelay)
 
@@ -583,11 +616,11 @@ class Shooter(Bullet):
         # Adjust for bullet spinning
 
         if self.isSpinning:
-            self.spinRate = math.radians(self.spinpattern.eval(time / TIME_DECEL, math.degrees(self.spinRate)))
-            self.rotationIter.rate = self.spinRate
+            self.spinRate.update()
+            self.rotationIter.rate = self.spinRate.value
             
             self.rotationIter.update()
-            self.spinRate = self.rotationIter.rate
+            self.spinRate.value = self.rotationIter.rate
         
         # Adjust the shape but only when within the boundaries 
 
@@ -599,6 +632,13 @@ class Shooter(Bullet):
         self.bulletctriter.update()
         self.arcIter.update()
         self.setShape(math.degrees(self.arcIter.value), self.bulletctriter.value, -1 * math.degrees(self.rotationIter.value)) 
+
+
+        # Update velocity, acceleration, etc..
+        self.bulletxveliter.update()
+        self.bulletyveliter.update()
+        self.bulletxacciter.update()
+        self.bulletyacciter.update() 
         
 
     # Frees up space for next set of bullets
@@ -606,25 +646,3 @@ class Shooter(Bullet):
     def expend(self):
         for b in self.bullets:
             self.bullets.remove(b)
-
-def checkLowerBound(lbound, val, rate):
-    if lbound == None:
-        return True
-    elif val + rate >= lbound:
-        return True
-    else:
-        return False
-
-def checkUpperBound(ubound, val, rate):
-    if ubound == None:
-        return True
-    elif val + rate <= ubound:
-        return True
-    else:
-        return False
-
-def repeatingSetter(maxval, minval, rateval):
-    if rateval >= 0:
-        return minval
-    else:
-        return maxval

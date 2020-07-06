@@ -4,7 +4,6 @@ import os
 import math
 import copy
 import random
-from patterns import *
 from entities import *
 from constants import *
 from shooter import *
@@ -26,7 +25,6 @@ class Preset_Shooter(pygame.sprite.Sprite):
     def setBirth(self, time):
         self.birth = time
 
-# Make All Presets Here
 class Preset1(Preset_Shooter):
     def __init__(self):
         Preset_Shooter.__init__(self)
@@ -34,126 +32,43 @@ class Preset1(Preset_Shooter):
 
     def prime(self):
 
+        r = Shooter()
+        r.setShape(0, 1, 0)
+        r.setSpinParams(30)
+        r.setLocation(constants.SWIDTH / 2, constants.SHEIGHT / 2)
+        r.setMode(3)
+        r.setROF(5000)
+
+        s = Shooter()
+        s.setROF(1000)
+        s.setShape(360, 6, 0)
+        s.setSpinParams(6)
+        s.setBulletParams(10, 10 , -9.5, -9.5)
+        s.setBurstParams(10, 100)
+        s.setAmmo(1)
+        r.addShooter(s)
         
-        q = Shooter()
-        q.setBulletParams(3, 3, 1, 1)
-        q.setShape(360, 10, 0)
-        q.setVisible(False)
-        q.setROF(1000)
-        q.setAmmo(2)
+        s = Shooter()
+        s.setROF(1000)
+        s.setShape(360, 6, 0)
+        s.setSpinParams(-6)
+        s.setBulletParams(10, 10, -9.5, -9.5)
+        s.setBurstParams(10, 100)
+        s.setAmmo(1)
+        r.addShooter(s)
+        
+        #self.shooter_list.add(r)
 
         p = Shooter()
-        p.setBulletParams(3.5, 3.5, 0, 0)
-        p.setShape(360, 10, 0)
-        p.setVisible(False)
-        p.setIsSpinning(True)
-        p.setSpinRate(10)
-        p.setROF(500)
+        p.setLocation(constants.SWIDTH / 2, constants.SHEIGHT / 2)
+        p.setShape(0, 1, 0)
+        p.setBulletsOrbit(True)
+        p.setBulletOrbitParams(90, 0, 100)
+        p.setBulletOrbitRadParams(0, 0)
+        p.setROF(1000)
         p.setAmmo(1)
-        p.setMode(3)
-        p.addShooter(q)
+        p.setBurstParams(1, 100)
         p.setBulletColor(constants.red)
 
-
-        r = Shooter()
-        r.setBulletParams(-4, -4, -1, -1)
-        r.setIsSpinning(True)
-        r.setROF(100)
-        r.setSpinRate(10)
-        r.setAmmo(40)
-        r.setBulletColor(constants.blue)
-        r.setShape(0, 1, 0)
-
-        s = Shooter()
-        s.setMode(3)
-        s.setLocation(constants.SWIDTH / 2, constants.SHEIGHT/2 )
-        s.setBulletsOrbit(True)
-        s.setBulletOrbitParams(30, 0, 100)
-        s.setROF(6000)
-        s.setAmmo(1)
-        s.addShooter(p)
-        s.addShooter(r)
-        s.setShape(360, 5, 0)
-        s.setBulletColor(constants.white)
-        self.shooter_list.add(s)
         
-        s = Shooter()
-        s.setMode(3)
-        s.setLocation(constants.SWIDTH / 2, constants.SHEIGHT/2 )
-        s.setBulletsOrbit(True)
-        s.setBulletOrbitParams(-30, 0, 100)
-        s.setROF(6000)
-        s.setAmmo(1)
-        s.addShooter(r)
-        s.setShape(360, 5, 0)
-        s.setBulletColor(constants.black)
-        self.shooter_list.add(s)
-
-        s = Shooter()
-        s.setLocation(constants.SWIDTH / 2, constants.SHEIGHT / 2)
-        s.setBulletParams(5, 5, 0, 0)
-        s.setShape(360, 15, 0)
-        s.setIsOscillating(True)
-        s.setAngleBounds(0,360)
-        s.setROF(150)
-        s.setAmmo(30)
-        s.setSpinRate(10)
-        s.setBulletColor(constants.yellow)
-        self.shooter_list.add(s)
-
-class Preset2(Preset_Shooter):
-    def __init__(self):
-        Preset_Shooter.__init__(self)
-        self.clearList()
-
-    def prime(self):
-
-        r = Shooter()
-        r.setShape(0, 1, 0)
-        r.setBulletColor(constants.red)
-        r.setAmmo(1)
-        r.setDelay(500)
-        r.setFireWhenStop(True)
-        r.setBulletParams(4, 4, 1, 1)
-        r.setRandomTargetting(True)
-
-        s = Shooter()
-        s.setShape(30, 1, 0)
-        s.setBulletParams(5, 5, -2.25, -2.25)
-        s.setLocation(constants.SWIDTH / 2, constants.SHEIGHT / 2)
-        s.setROF(100)
-        s.setIsSpinning(True)
-        s.setSpinRate(10)
-
-        s.setShapeCounters(1, 0)
-        s.setBulletCtrRepeating(True)
-        s.setBulletCtrBounds(1, 10)
-        s.setBulletArcBounds(0, 180)
-        s.setBulletArcOscillates(True)
-
-        s.setBulletsSticky(True)
-        s.setBulletsStickyTimer(500)
-        s.setMode(3)
-        s.addShooter(r)
-        #self.shooter_list.add(s)
-
-        
-        s = Shooter()
-        s.setShape(30, 5, 0)
-        s.setBulletParams(5, 5, -2.25, -2.25)
-        s.setLocation(constants.SWIDTH / 2, constants.SHEIGHT / 2)
-        s.setROF(100)
-        s.setIsSpinning(False)
-        s.setSpinRate(10)
-
-        s.setShapeCounters(0, 10)
-        s.setBulletCtrRepeating(True)
-        s.setBulletCtrBounds(1, 10)
-        s.setBulletArcBounds(0, 360)
-        s.setBulletArcOscillates(True)
-
-        #s.setBulletsSticky(True)
-        s.setBulletsStickyTimer(500)
-        #s.setMode(3)
-        s.addShooter(r)
-        self.shooter_list.add(s)
+        self.shooter_list.add(p)
