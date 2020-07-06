@@ -80,10 +80,13 @@ class Entity(pygame.sprite.Sprite):
         self.lastStopTime = 0
 
         # Keep Track of the time when sticky was activated
-        self.lastStickyTime = None
+        self.lastStickyTime = 0
 
         self.homeTime = -1
+        self.isNotMoving = False
         self.stopHoming = False
+
+        self.currentTime = 0
 
     def setHomeTime(self, time):
         self.hometime = time
@@ -159,12 +162,12 @@ class Entity(pygame.sprite.Sprite):
     def setParams(self, xvel, yvel, xacc, yacc):
         self.xveli = xvel
         self.yveli = yvel
-        self.xacc = xacc / 100
-        self.yacc = yacc / 100
+        self.xacc = xacc
+        self.yacc = yacc
 
     def setOrbitParams(self, vel, acc, rad, centerx, centery, angle0):
         self.orbitVel = vel * 4
-        self.orbitAcc = acc / 100
+        self.orbitAcc = acc
         self.orbitRad = rad
         self.orbitCenterx = centerx
         self.orbitCentery = centery
@@ -176,33 +179,35 @@ class Entity(pygame.sprite.Sprite):
 
     def setOrbitRadParams(self, vel, acc):
         self.orbitRadVel = vel 
-        self.orbitRadAcc = acc / 100 
+        self.orbitRadAcc = acc
         self.orbitRadveli = vel
 
     def motion(self, time):
         # Check if Sticky, if yes then immediately stop 
-        if not self.isSticky and self.lastStickyTime != None:
-            time = time / constants.FPS - self.lastStickyTime
-        else:
-            time = time /constants.FPS
         
-        # Check for Life
-        if time >= self.life / constants.FPS and self.life != -1:
-            self.life = 0
-
         if self.isSticky:
-            self.lastStickyTime = time
+            return
+        
+        if self.isNotMoving:
             return
 
-        elif self.isOrbit:
+        self.currentTime += constants.FPS / 1000
+        time = self.currentTime
+
+        
+        if self.currentTime >= self.life / constants.FPS and self.life != -1:
+            self.life = 0
+
+
+        if self.isOrbit:
             self.xpos = (self.orbitCenterx + self.orbitRad * math.cos(math.radians(self.orbitAngle)))
             self.ypos = (self.orbitCentery + self.orbitRad * math.sin(math.radians(self.orbitAngle)))
 
 
-            self.orbitAngle = self.orbitAnglei + self.orbitVel * time
-            self.orbitVel = self.orbitVeli + self.orbitAcc * time
-            self.orbitRad = self.orbitRadi + self.orbitRadVel * time
-            self.orbitRadVel = self.orbitRadveli * self.orbitRadAcc * time
+            self.orbitAngle = self.orbitAnglei + self.orbitVel * time * math.pi * 2
+            self.orbitVel = self.orbitVeli + self.orbitAcc * time * math.pi * 2
+            self.orbitRad = self.orbitRadi + self.orbitRadVel * time 
+            self.orbitRadVel = self.orbitRadveli * self.orbitRadAcc * time 
 
         elif not self.polyMove and not self.isOrbit:
             mousex, mousey = pygame.mouse.get_pos()
@@ -226,11 +231,11 @@ class Entity(pygame.sprite.Sprite):
             r = self.xpos
             s = self.ypos
             (p, q) = self.polyMoveArray[self.currvertex]
-            if math.sqrt((r - p) * (r-p) + (s - q) * (s- q)) <= math.sqrt(self.xvel * self.xvel + self.yvel * self.yvel):
+            if math.sqrt((r - p) * (r-p) + (s - q) * (s- q)) <= math.sqrt(self.xveli * self.xveli + self.yveli * self.yveli):
                 a = self.currvertex + 2
                 self.currvertex = self.currvertex + 1
-                if self.currvertex >= len(self.polyMoveArray) and not self.polyMoveLoop:
-                    self.currvertex = len(self.polyMoveArray) - 1
+                if self.currvertex >= len(self.polyMoveArray) - 1 and not self.polyMoveLoop:
+                    self.currvertex = len(self.polyMoveArray) - 2
                 elif self.currvertex >= len(self.polyMoveArray):
                     self.currvertex = 1
 
@@ -243,17 +248,23 @@ class Entity(pygame.sprite.Sprite):
                 else:
                     self.motion_delay = self.polyMoveDelayArray[a]
                     
-
                 (p, q) = self.polyMoveArray[self.currvertex]
-                self.target = getTarget(p, q, self.xpos, self.ypos)
                 self.stop = True 
 
-            self.xpos = self.xposi + self.xvel * math.cos(self.target) *time
-            self.ypos = self.yposi + self.yvel * math.sin(self.target) * time
-            self.xvel = abs  (self.xveli + self.xacc * time) 
+            self.target = getTarget(p, q, self.xpos, self.ypos)
+            
+            val = constants.FPS / 1000
+            self.xposi = self.xposi + self.xveli * math.cos(self.target) * val
+            self.yposi = self.yposi + self.yveli * math.sin(self.target) *val
+            self.xveli = abs  (self.xveli + self.xacc * val) 
             self.xacc = self.xacc * math.cos(self.target)
 
-            self.yvel = abs (self.yveli + self.yacc * time) 
+            self.yveli = abs (self.yveli + self.yacc  * val) 
             self.yacc = self.yacc * math.sin(self.target) 
+
+            self.xpos = self.xposi
+            self.ypos = self.yposi
+
+
 
 

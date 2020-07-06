@@ -79,20 +79,22 @@ def checkbounds(b, screen, SWIDTH, SHEIGHT):
         b.isHoming = False
     # Set bullet to sticky if time is up and not sticky if it exceeds duration of sticky 
 
-    if b.motion_delay >= t - b.lastStopTime and b.motion_delay != -1:
-        b.isSticky = True
-    else: 
-        b.isSticky =False
-        if b.stop: 
-            b.lastStopTime = t
-            b.stop = False
-
-    if b.stickyTimer <=t and b.rules[2] == True and ((b.stickyTimer != -1 and b.stickyTimerStop >= t) or b.stickyTimerStop == -1):   
-        b.isSticky = True
-    elif b.rules[2] and random.randrange(0, fps) == 1 and b.stickyTimer == -1: 
-        b.isSticky = True
+    if b.polyMove:
+        if b.motion_delay >= t - b.lastStopTime and b.motion_delay != -1:
+            b.isNotMoving = True
+        else: 
+            b.isNotMoving =False
+            if b.stop: 
+                b.lastStopTime = t
+                b.stop = False
+    
     else:
-        b.isSticky = False
+        if b.stickyTimer <=t and b.rules[2] == True and ((b.stickyTimer != -1 and b.stickyTimerStop >= t) or b.stickyTimerStop == -1):   
+            b.isSticky = True
+        elif b.rules[2] and random.randrange(0, fps) == 1 and b.stickyTimer == -1: 
+            b.isSticky = True
+        else:
+            b.isSticky = False
 
 
     # Set bullet to orbit if time is up and not orbit if it exceeds duration of orbit
@@ -117,6 +119,7 @@ def checkbounds(b, screen, SWIDTH, SHEIGHT):
             bulletsDisplayed.remove(b)
     
     elif b.life == 0:
+
         bulletsDisplayed.remove(b)
         del b
     else: 
