@@ -117,15 +117,6 @@ class Shooter(Bullet):
         # For "grenade" mode. Contains a list of shooters to fire. Each shooter gets deep copied so that there are bulletctr number of shooters
         self.shooterList = []
 
-        # For oscillations
-        self.isOscillating = False
-
-        # Repeating means that if the maxvalue has been reached, then set the value of the angle to be a predetermined value
-        self.isRepeating = False
-
-        self.minangle = None
-        self.maxangle = None
-
         # For random delays
         self.isRandomDelay = False
         self.mindelay = 0
@@ -158,40 +149,27 @@ class Shooter(Bullet):
 
         self.bullethometime = 100
 
-    def setBulletCtrRepeating(self, val):
-        self.bulletctriter.repeating = val
+        # If momentum is set to true, then bullets that are no longer homing will change course and ignore bullet params 
+        self.bulletHomingHomentum = False
 
-    def setBulletArcRepeating(self, val):
-        self.arcIter.repeating = val
-
-    def setIsRepeating(self, val):
-        self.rotationIter.repeating = val
-
-    def setRandomTargetting(self, val):
+    def setBulletCtrIter(self, rate, lowerbound = None, upperbound = None, oscillates = False, repeats = False):
+        self.bulletctriter.rate = rate
+        self.bulletctriter.oscillating = oscillates
+        self.bulletctriter.repeating = repeats
+        self.bulletctriter.lowerbound = lowerbound
+        self.bulletctriter.upperbound = upperbound
+    
+    def setBulletArcIter(self, rate, lowerbound = None, upperbound = None, oscillates = False, repeats = False):
+        self.arcIter.rate
+        self.arcIter.oscillating = oscillates
+        self.arcIter.repeating = repeats
+        self.arcIter.lowerbound = lowerbound
+        self.arcIter.upperbound = upperbound
+    
+    def setRandomTargetting(self, cond, minbound, maxbound):
         self.isRandomTargetting = val
-
-    # Set the range of angles to pick from
-    def setRandomTargettingBounds(self, minimum, maximum):
-        self.randomTargettingmin = minimum
-        self.randomTargettingmax = maximum
-
-    def setBulletCtrOscillates(self, val):
-        self.bulletctriter.oscillating = val
-
-    def setBulletArcOscillates(self, val):
-        self.arcIter.oscillating = val
-
-    def setBulletCtrBounds(self, minimum, maximum):
-        self.bulletctriter.lowerbound = minimum
-        self.bulletctriter.upperbound = maximum
-
-    def setBulletArcBounds(self, minimum, maximum):
-        self.arcIter.lowerbound = math.radians(minimum)
-        self.arcIter.upperbound = math.radians(maximum)
-
-    def setShapeCounters(self, bulletctrrate , bulletarcrate):
-        self.bulletctriter.rate = bulletctrrate
-        self.arcIter.rate = math.radians(bulletarcrate)
+        self.randomTargettingmin = minbound
+        self.randomTargettingmax = maxbound
 
     def setBurstParams(self, burstsize, burstdelay):
         self.burstSize = burstsize
@@ -217,14 +195,11 @@ class Shooter(Bullet):
         self.mindelay = mindelay
         self.maxdelay = maxdelay
 
-    def setIsOscillating(self, val):
-        self.rotationIter.oscillating = val
-        self.isSpinning = val
-
-    # Min angle and Max Angle are in Degrees
-    def setAngleBounds(self, minangle, maxangle):
-        self.rotationIter.lowerbound = math.radians(minangle)
-        self.rotationIter.upperbound = math.radians(maxangle)
+    def configRotationIter(self, minangle = None, maxangle = None, oscillating= False, repeating = False):
+        self.rotationIter.lowerbound = minangle
+        self.rotationIter.upperbound = maxangle
+        self.rotationIter.oscillating = oscillating
+        self.rotationIter.repeating = repeating
 
     def addShooter(self, shooter):
         self.shooterList.append(shooter)
@@ -238,57 +213,43 @@ class Shooter(Bullet):
     def setBulletsVisible(self, val):
         self.bullet_rules[4] = val
 
-    def setBulletsOrbit(self, cond):
-        self.bullet_rules[3] = cond
-
-    def setBulletOrbitParams(self, vel, acc, rad):
+    def setBulletOrbitParams(self, vel, acc, rad, radvel = 0, radacc = 0, cond = True, orbitdelay = -1, orbitstop = -1):
         self.bulletorbitVel = math.radians(vel)
         self.bulletorbitAcc = math.radians(acc)
         self.bulletorbitRad = rad
+        self.bulletorbitRadVel = radvel
+        self.bulletorbitRadAcc = radacc
+        self.bulletOrbitTimer = orbitdelay
+        self.bulletOrbitTimerStop = orbitstop
+        self.bullet_rules[3] = cond
 
-    def setBulletOrbitRadParams(self, vel, acc):
-        self.bulletorbitRadVel = vel
-        self.bulletorbitRadAcc = acc
-
-    def setDelay(self, delay):
+    def setFiringDelay(self, delay):
         self.delay = delay
 
-    def setWaveRadius(self, rad):
+    def setWaveParams(self, rad, radvel, arc):
         self.waverad = rad
-
-    def setWaveRadVel(self, radvel):
         self.waveradvel = radvel
-
-    def setWaveArc(self, arc):
         self.wavearc = arc
     
-    def setBulletsSticky(self, val):
-        self.bullet_rules[2] = val
-
-    def setBulletsStickyTimer(self, val):
-        self.bullets_sticky_timer = val
-
-    def setBulletsStickyTimerStop(self, val):
-        self.bullets_sticky_timer_stop = val
+    def setBulletsStickyParams(self, stickytimer, stickytimerstop, cond = True):
+        self.bullet_rules[2] = cond
+        self.bullets_sticky_timer = stickytimer
+        self.bullets_sticky_timer_stop = stickytimerstop
 
     def setMode(self, mode):
         self.mode = mode
 
-    def setBulletHomingDelay(self, delay):
-        self.bulletHomingDelay = delay
-
-    def setBulletHomingWeight(self, weight):
-        self.bulletHomingWeight = weight
-
-    def setBulletHomingError(self, err):
-        self.bulletHomingError = err
-
     def setLaserSpinRate(self, val):
         self.laserspinrate = val
 
-    def setBulletsHoming(self, val, timehoming = -1):
+    def setBulletsHoming(self, val, delay = 0, timehoming = -1, weight = None, err = 0, momentum = False):
         self.bullet_rules[1] = val
         self.bullethometime = timehoming
+        self.bulletHomingDelay = delay
+        if weight != None:
+            self.bulletHomingWeight = weight
+        self.bulletHomingError = err
+        self.bulletHomingHomentum = momentum 
 
     def setBulletSize(self, size):
         self.bullet_size = size
@@ -309,38 +270,20 @@ class Shooter(Bullet):
         self.isAuto = val
         self.nextTime = self.birth + self.rof
 
-    def setAimOffset(self, offset):
-        self.aimOffset = math.radians(offset) 
+    def setBulletsTargetting(self, cond, offest = 0, error = 0, weight = 0 ):
+        self.aimOffset = math.radians(offset)
+        self.targettingError = error
+        self.targettingWeight = weight
+        self.isTargetting = cond
 
     def setInRadius(self, rad):
         self.inRadius = rad
 
-    def setTargettingError(self, val):
-        self.targettingError = val
-
-    def setTargettingWeight(self, val):
-        self.targettingWeight = val 
-
-    def setBulletsTargetting(self, val):
-        self.isTargetting = val 
-    
-    def isShooterTargetting(self):
-        return self.isTargetting
-
     def setBulletsdeleteIfOut(self, val):
         self.bullet_rules[0]= val
 
-    def isBulletsdeleteIfOut(self):
-        return self.bullet_rules[0]
-
     def setBullets(self, ctr):
         self.bulletctr =ctr
-
-    def setBulletOrbitTimer(self, timer):
-        self.bulletOrbitTimer = timer
-
-    def setBulletOrbitTimerStop(self, timer):
-        self.bulletOrbitTimerStop = timer
 
     def setAmmo(self, ctr):
         self.ammo = ctr
@@ -583,6 +526,7 @@ class Shooter(Bullet):
                 obj.setHomeTime(self.bullethometime)
                 obj.setHomingError(self.bulletHomingError)
                 obj.setHomingDelay(self.bulletHomingDelay)
+                obj.setHomingMomentum(self.bulletHomingHomentum)
 
             # Adjust for sticky parameters
             if self.bullet_rules[2]:

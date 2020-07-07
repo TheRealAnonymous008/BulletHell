@@ -1,3 +1,7 @@
+# Features to Be added:
+# Update Orbit Parameters, Delay Parameters, and Sticky Parameters to be Time Iterators
+# Allow a range of locations for the shooterto exist in, defined by an equation 
+
 import random
 import sys
 import math
@@ -9,6 +13,7 @@ from bullet import *
 from shooter import *
 from presets import * 
 from player import * 
+from globalevents import * 
 from pygame.locals import DOUBLEBUF
 from pygame.locals import HWSURFACE
 
@@ -75,8 +80,11 @@ def checkbounds(b, screen, SWIDTH, SHEIGHT):
     # Set the bullet to Homing if time is up2
     if b.homingDelay <= t and((b.homeTime + b.homingDelay >= t and b.homeTime != -1) or b.homeTime == -1 )and b.rules[1] == True: 
         b.isHoming = True
+        b.stopHoming = False
     else:
         b.isHoming = False
+        b.stopHoming = True
+
     # Set bullet to sticky if time is up and not sticky if it exceeds duration of sticky 
 
     if b.polyMove:
@@ -87,14 +95,18 @@ def checkbounds(b, screen, SWIDTH, SHEIGHT):
             if b.stop: 
                 b.lastStopTime = t
                 b.stop = False
-    
-    else:
-        if b.stickyTimer <=t and b.rules[2] == True and ((b.stickyTimer != -1 and b.stickyTimerStop >= t) or b.stickyTimerStop == -1):   
-            b.isSticky = True
-        elif b.rules[2] and random.randrange(0, fps) == 1 and b.stickyTimer == -1: 
+
+    # Check if sticky
+
+    if b.rules[2]:
+        if b.stickyTimer <= t and t <= b.stickyTimerStop:
             b.isSticky = True
         else:
             b.isSticky = False
+
+        if t > b.stickyTimerStop:
+            t = t - b.stickyTimerStop + b.stickyTimer 
+
 
 
     # Set bullet to orbit if time is up and not orbit if it exceeds duration of orbit
