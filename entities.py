@@ -89,6 +89,15 @@ class Entity(pygame.sprite.Sprite):
         self.homingMomentum = False
         self.stopHoming = False 
 
+        self.pathfunctional = False
+        self.functamp = 0
+        self.functfreq = 0
+
+    def setFunctParams(self, pathfunctional, functamp, functfreq):
+        self.functamp = functamp
+        self.functfreq = functfreq
+        self.pathfunctional = pathfunctional
+
     def setHomingMomentum(self, val):
         self.homingMomentum = val
 
@@ -222,15 +231,21 @@ class Entity(pygame.sprite.Sprite):
                 self.target = getTarget(mousex, mousey, self.xpos, self.ypos) + math.radians(self.homingError)
             
             target = self.target
+            angle = getTarget(self.xvel, self.yvel, 0, 0)
 
-            self.xpos = (self.xposi + self.xvel * time) 
-            self.ypos = (self.yposi + self.yvel * time) 
-            self.xvel = (self.xveli + self.xacc * time)    
+            # Evaluate the function as if it were on the origin and then if the function is required, add it to the initial location.
+            a = time
+            b =  self.functamp * math.sin(a * self.functfreq)
+
+            self.xpos = self.xposi + self.pathfunctional * (a * (math.cos(angle)) - b * math.sin(angle)) + self.xveli * time
+            self.ypos = self.yposi + self.pathfunctional * (a * math.sin(angle) + b * (math.cos(angle))) + self.yveli * time
+
+            self.xvel = (self.xveli + self.xacc * time) 
             self.yvel = (self.yveli + self.yacc * time) 
 
 
             if self.isHoming or (self.stopHoming and not self.homingMomentum):
-                self.xacc = (self.xacc + self.homingWeight * int(self.isHoming) * math.cos(target) * time )
+                self.xacc = (self.xacc + self.homingWeight * int(self.isHoming) * math.cos(target) * time)
                 self.yacc = (self.yacc + self.homingWeight * int(self.isHoming) * math.sin(target) * time)
             elif self.stopHoming and self.homingMomentum and self.rules[1]:
                 self.xacc = (self.xacc + self.homingWeight *  math.cos(target) * time )

@@ -72,6 +72,7 @@ class Shooter(Bullet):
         self.bulletyveliter = TimeIterator()
         self.bulletxacciter = TimeIterator()
         self.bulletyacciter = TimeIterator()
+        
 
         self.arcIter = TimeIterator()
         self.rotationIter = TimeIterator()
@@ -150,7 +151,17 @@ class Shooter(Bullet):
         self.bullethometime = 100
 
         # If momentum is set to true, then bullets that are no longer homing will change course and ignore bullet params 
-        self.bulletHomingHomentum = False
+        self.bulletHomingHomentum = False       
+
+        # For sinusoidal bullets
+        self.bulletsSinusoidal = False
+        self.bulletsSinamp = 0
+        self.bulletsSinFreq = 0
+
+    def setBulletsSinusoidal(self, amp = 1, freq = 1):
+        self.bulletsSinusoidal = True
+        self.bulletsSinamp = amp
+        self.bulletsSinFreq = freq
 
     def setBulletCtrIter(self, rate, lowerbound = None, upperbound = None, oscillates = False, repeats = False):
         self.bulletctriter.rate = rate
@@ -196,8 +207,8 @@ class Shooter(Bullet):
         self.maxdelay = maxdelay
 
     def configRotationIter(self, minangle = None, maxangle = None, oscillating= False, repeating = False):
-        self.rotationIter.lowerbound = minangle
-        self.rotationIter.upperbound = maxangle
+        self.rotationIter.lowerbound = math.radians(minangle)
+        self.rotationIter.upperbound = math.radians(maxangle)
         self.rotationIter.oscillating = oscillating
         self.rotationIter.repeating = repeating
 
@@ -327,7 +338,7 @@ class Shooter(Bullet):
         else:
             self.spokes = self.arcIter.value / (spokes - 1)   
         
-        self.bulletctr= spokes
+        self.bulletctr = spokes
 
 
     # setBulletParams adjusts the x and y velocities and accelerations of bullets created by the object
@@ -505,6 +516,7 @@ class Shooter(Bullet):
             ya = d * yf
             
             obj.setParams(xv, yv, xa, ya)
+            obj.angle = angle
             
             if self.bullet_rules[3]:
                 obj.setOrbitParams(self.bulletorbitVel, self.bulletorbitAcc, self.bulletorbitRad, x, y, angle)
@@ -518,6 +530,7 @@ class Shooter(Bullet):
             obj.setLife(self.bulletlife)
             obj.setSize(self.bullet_size)
             obj.setBirth(time)
+            obj.setFunctParams(self.bulletsSinusoidal, self.bulletsSinamp, self.bulletsSinFreq)
             
             
             # Adjust for homing parameters
@@ -559,12 +572,15 @@ class Shooter(Bullet):
         
         # Adjust for bullet spinning
 
+        # Needs to be fixed
         if self.isSpinning:
             self.spinRate.update()
             self.rotationIter.rate = self.spinRate.value
             
+
             self.rotationIter.update()
-            self.spinRate.value = self.rotationIter.rate
+            if self.rotationIter.rate != self.spinRate.value:
+                self.spinRate.value *= -1
         
         # Adjust the shape but only when within the boundaries 
 

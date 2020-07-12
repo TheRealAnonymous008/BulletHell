@@ -8,6 +8,7 @@ class TimeIterator():
         self.oscillating = False
         self.repeating = False
         self.rate = 0
+        self.reverse = False
 
     def setOscillating(self, val):
         self.oscillating = val
@@ -16,9 +17,20 @@ class TimeIterator():
         self.repeating = val
     
     def get_value(self):
-        return self.value
+        if self.value!= None:
+            return self.value
+        else:
+            return self.valinit
 
     def update(self):
+        
+        # Accounting for second derivative changes (i.e. acceleration changes for a position ctr)
+
+        if self.reverse:
+            self.reverse = False
+            self.rate = -1 * self.rate
+
+
         mincheck = checkLowerBound(self.lowerbound, self.value, self.rate)
         maxcheck = checkUpperBound(self.upperbound, self.value, self.rate)
         repeated = False

@@ -32,10 +32,11 @@ class Preset1(Preset_Shooter):
 
     def prime(self):
         s = Shooter()
-        s.setShape(360, 10, 0)
+        s.setBulletParams(30, 30, 0 , 0)
+        s.setShape(360, 10 , 0)
+        s.setLocation(constants.SWIDTH / 2, constants.SHEIGHT / 2)
         s.setROF(300)
-        s.setAmmo(1)
-        s.setLocation(150, 300)
-        s.setBulletParams(50, 50, 1, 1)
-        s.setBulletsHoming(True, 1000, 3000, None, 0, False)
+        s.setBulletsSinusoidal(30, 1)
+
         self.shooter_list.add(s)
+        
