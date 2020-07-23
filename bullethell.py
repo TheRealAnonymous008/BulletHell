@@ -1,7 +1,6 @@
 # Features to Be added:
 # Update Orbit Parameters, Delay Parameters, and Sticky Parameters to be Time Iterators
-# Allow a range of locations for the shooterto exist in, defined by an equation 
-
+#  Add bouncing bullets
 
 import random
 import sys
@@ -138,7 +137,7 @@ def checkbounds(b, screen, SWIDTH, SHEIGHT):
     else: 
         b.draw(screen, t)
 
-# Function to add the bullets to displayedbullets array
+# Function to add the bullets to displayedbullets arrayzzy
 
 def displayBullets():
     for s in shooters:

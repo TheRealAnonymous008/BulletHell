@@ -78,7 +78,7 @@ class Laser(Bullet):
     def setLength(self, length):
         self.length = length 
 
-    def draw(self, screen):
+    def draw(self, screen, time ):
         x = int(self.xpos) 
         y = int(self.ypos)
         targetx = self.length * math.cos(self.angle)
@@ -112,7 +112,7 @@ class Wave(Bullet):
         self.rotation = rotation
         self.radvel = radvel
 
-    def draw(self, screen):
+    def draw(self, screen, time):
         if self.arc != math.radians(360):
             pygame.draw.arc(screen, self.color, (self.centerx - self.radius, self. centery - self.radius, 2 * self.radius, 2*  self.radius), self.rotation, self.rotation + self.arc, self.size)
         else:

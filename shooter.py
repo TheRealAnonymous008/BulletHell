@@ -53,7 +53,7 @@ class Shooter(Bullet):
 
         # In radius determines the radius of a circle from which all bullets will start.
         # Out radius determines the point up to which all bullets will be deleted, - 1 indicates no outRadis
-        self.inRadius = 0
+        self.inRadius = 1
 
         # Targetting weight determines how much targetting is prioritized
         # Targetting error determines how inaccurate the aim is
@@ -149,6 +149,7 @@ class Shooter(Bullet):
         self.bulletctriter = TimeIterator()
 
         self.bullethometime = 100
+        self.shooterdelay = 0
 
         # If momentum is set to true, then bullets that are no longer homing will change course and ignore bullet params 
         self.bulletHomingHomentum = False       
@@ -157,6 +158,12 @@ class Shooter(Bullet):
         self.bulletsSinusoidal = False
         self.bulletsSinamp = 0
         self.bulletsSinFreq = 0
+
+
+        # For adding edges
+        self.hasEdges = False
+        self.bulletsPerEdge = TimeIterator()
+        self.vertices = []
 
     def setBulletsSinusoidal(self, amp = 1, freq = 1):
         self.bulletsSinusoidal = True
@@ -281,7 +288,7 @@ class Shooter(Bullet):
         self.isAuto = val
         self.nextTime = self.birth + self.rof
 
-    def setBulletsTargetting(self, cond, offest = 0, error = 0, weight = 0 ):
+    def setBulletsTargetting(self, cond, offset = 0, error = 0, weight = 1000 ):
         self.aimOffset = math.radians(offset)
         self.targettingError = error
         self.targettingWeight = weight
@@ -326,7 +333,7 @@ class Shooter(Bullet):
 
     # setShape adjusts the shooter's arc, number of spokes and the rotational offset from 0 rad
 
-    def setShape(self, arc , spokes, rotation ):
+    def setShape(self, arc , spokes, rotation, hasEdges = False, bulletsPerEdge = 0):
 
         self.arcIter.value =  math.radians(arc)
         self.rotationIter.value = -1 * math.radians(rotation) 
@@ -339,6 +346,9 @@ class Shooter(Bullet):
             self.spokes = self.arcIter.value / (spokes - 1)   
         
         self.bulletctr = spokes
+
+        self.hasEdges = hasEdges
+        self.bulletsPerEdge.value = bulletsPerEdge
 
 
     # setBulletParams adjusts the x and y velocities and accelerations of bullets created by the object
@@ -402,6 +412,20 @@ class Shooter(Bullet):
         self.bulletyacciter.oscillating = oscillates
         self.bulletyacciter.repeating = repeats
 
+    def configEdgeBullets(self, rate = 0, lbound = None, ubound = None , oscillates = False, repeats = False):
+        self.bulletsPerEdge.rate = rate
+        
+        if lbound != None:
+            self.bulletsPerEdge.lowerbound = lbound
+
+        if ubound != None:
+            self.bulletsPerEdge.upperbound = ubound
+
+        self.bulletsPerEdge.oscillating = oscillates
+        self.bulletsPerEdge.repeating = repeats
+
+
+
     # setAngle takes in angle as a parameter and sets that as the angle of tthe shooter
 
     def setAngle(self, angle):
@@ -425,7 +449,7 @@ class Shooter(Bullet):
         if self.isRandomDelay:
             self.delay = random.randrange(self.mindelay, self.maxdelay)
         if self.syncShooters:
-            shooterdelay = random.randrange(self.mindelayShooters, self.maxdelayShooters)
+            self.shooterdelay = random.randrange(self.mindelayShooters, self.maxdelayShooters)
 
         bulletno = int(self.bulletctr)
         # Add bullet objects
@@ -455,129 +479,41 @@ class Shooter(Bullet):
                     self.bullets.add(s)
 
         j = 0
+
+        # Start with the vertices
         for obj in self.bullets:
-            obj.setColor(self.bulletColor)
-
-            obj.rules = self.bullet_rules
-
-            a =  self.bulletxveliter.value
-            b =  self.bulletyveliter.value
-            c =  self.bulletxacciter.value
-            d =  self.bulletyacciter.value
-
-            isHoming = int(self.isTargetting) 
-
-            # The following coeffs are used to ensure that the value of cosine and sine stay positive. 
-            # These can be altered to produce other effects
-            target = 0
-
-
-            # Allows the Shooter to track movement
-            if isHoming: 
-                error = random.uniform(-1 * self.targettingError , 1 * self.targettingError)
-                mousex, mousey = pygame.mouse.get_pos()
-                target = getTarget(mousex, mousey, self.xpos, self.ypos) + math.radians(error) - self.arcIter.value / 2 + self.aimOffset
-
-
-            # For Randomized Shooting
-            elif self.isRandomTargetting:
-                minimum = self.randomTargettingmin
-                maximum = self.randomTargettingmax
-                if self.randomTargettingmin == None:
-                    minimum = 0
-                if self.randomTargettingmax== None:
-                    maximum = 360
-                target = math.radians(random.randrange(minimum, maximum))
-    
-            angle = j  * (self.spokes) +  self.rotationIter.value
-            if bulletno == 1:
-                angle = self.arcIter.value / 2 + self.rotationIter.value
-            comp = j * (self.spokes) + target
-
-            # Calculate the parameters (x and y pos, vel and acc ) of each bullet
-            rfactor = self.targettingWeight *isHoming + 1
-            
-            xf =0
-            yf = 0
-            if not self.isRandomTargetting:
-                xf = (math.cos(angle + self.angle - self.arcIter.value / 2)  + self.targettingWeight * isHoming * math.cos(comp)) / rfactor
-                yf = (math.sin(angle + self.angle - self.arcIter.value / 2) + self.targettingWeight *  isHoming *math.sin(comp)) / rfactor 
-            else:
-                xf = math.cos(comp)
-                yf = math.sin(comp)
-
-            x = self.xpos +  self.inRadius * xf
-            y = self.ypos +  self.inRadius * yf
-            
-
-            xv = a * xf
-            yv = b * yf
-            xa = c * xf
-            ya = d * yf
-            
-            obj.setParams(xv, yv, xa, ya)
-            obj.angle = angle
-            
-            if self.bullet_rules[3]:
-                obj.setOrbitParams(self.bulletorbitVel, self.bulletorbitAcc, self.bulletorbitRad, x, y, angle)
-                obj.setOrbitRadParams(self.bulletorbitRadVel, self.bulletorbitRadAcc)
-                obj.setOrbitTimer(self.bulletOrbitTimer)
-                obj.setOrbitTimerStop(self.bulletOrbitTimerStop)
-                obj.isOrbit = True
-            
-            obj.setLocation(x, y)
-
-            obj.setLife(self.bulletlife)
-            obj.setSize(self.bullet_size)
-            obj.setBirth(time)
-            obj.setFunctParams(self.bulletsSinusoidal, self.bulletsSinamp, self.bulletsSinFreq)
-            
-            
-            # Adjust for homing parameters
-            if self.bullet_rules[1]:
-                obj.setHomingWeight(self.bulletHomingWeight)
-                obj.setHomeTime(self.bullethometime)
-                obj.setHomingError(self.bulletHomingError)
-                obj.setHomingDelay(self.bulletHomingDelay)
-                obj.setHomingMomentum(self.bulletHomingHomentum)
-
-            # Adjust for sticky parameters
-            if self.bullet_rules[2]:
-                obj.setStickyTimer(self.bullets_sticky_timer)
-                obj.setStickyTimerStop(self.bullets_sticky_timer_stop)
-
-            # Adjust for laser parameters
-            if self.mode == 1:
-                obj.setAngle(angle + self.angle - self.arc / 2)
-                obj.setLaserSpinRate(self.laserspinrate)
-
-            # Adjust for wave parameters
-            elif self.mode == 2:
-                obj.setWaveParams(x, y, self.wavearc, self.waverad, self.waveradvel, self.rotationIter.value)
-                obj.size = self.bullet_size
-
-            elif self.mode == 3:
-                if self.shooterSymmetry:
-                    obj.angle = angle
-                else:
-                    (w, x, y, z) = obj.params
-                    obj.angle = getTarget(w, x ,0, 0)
-
-                if obj.isRandomDelay and not self.syncShooters:
-                    obj.delay = random.randrange(obj.mindelay, obj.maxdelay)
-                elif self.syncShooters:
-                    obj.delay = shooterdelay
-
+            self.vertices.append(self.imbue(time, obj, j))
             j = j + 1
-        
-        # Adjust for bullet spinning
 
-        # Needs to be fixed
+        if self.hasEdges and bulletno != 1:
+            for v in range(0, len(self.vertices)):
+                v1 = self.vertices[v]
+                v2 = self.vertices[(v + 1) % len(self.vertices)]
+
+                for e in range(0, self.bulletsPerEdge.value):
+                    obj = None
+                    if self.mode == 0:
+                        obj = Bullet()
+                    elif self.mode == 1:
+                        obj = Laser()
+                    elif self.mode == 2:
+                        obj = Wave()
+                    elif self.mode == 3:
+                        for p in range(0, bulletno):
+                            for q in self.shooterList:
+                                obj = copy.deepcopy(q)
+                                self.imbue(time, obj, e, v1 , v2)
+                                self.bullets.add(obj)
+                        continue
+                    self.imbue(time, obj, e, v1 , v2)
+                    self.bullets.add(obj)
+
+
+        # Adjust for bullet spinning
         if self.isSpinning:
             self.spinRate.update()
             self.rotationIter.rate = self.spinRate.value
             
-
             self.rotationIter.update()
             if self.rotationIter.rate != self.spinRate.value:
                 self.spinRate.value *= -1
@@ -591,7 +527,7 @@ class Shooter(Bullet):
 
         self.bulletctriter.update()
         self.arcIter.update()
-        self.setShape(math.degrees(self.arcIter.value), self.bulletctriter.value, -1 * math.degrees(self.rotationIter.value)) 
+        self.setShape(math.degrees(self.arcIter.value), self.bulletctriter.value, -1 * math.degrees(self.rotationIter.value), self.hasEdges, self.bulletsPerEdge.value) 
 
 
         # Update velocity, acceleration, etc..
@@ -606,3 +542,184 @@ class Shooter(Bullet):
     def expend(self):
         for b in self.bullets:
             self.bullets.remove(b)
+        self.vertices *= 0
+
+    # Transfer properties to the object
+    def imbue(self, time, obj, j, v1 =  None, v2 = None):
+
+        edge = False
+        expos = 0
+        eypos = 0
+        vectorx = 0
+        vectory = 0
+        eangle = 0
+
+        if v1 != None and v2 != None:
+            edge = True
+            (x1, y1) = v1
+            (x2, y2) = v2
+
+            
+            j += 1
+            m = j
+            n = self.bulletsPerEdge.value - j + 1
+            expos = (m * x2 + n * x1) / (m + n)
+            eypos = (m * y2 + n * y1) / (m + n)
+
+            dx = expos - self.xpos
+            dy = eypos - self.ypos
+            rad = math.sqrt(dx * dx + dy * dy)
+
+            vectorx = dx / rad
+            vectory = dy / rad 
+
+            eangle =(getTarget(dx, dy, 0, 0))
+
+
+        bulletno = int(self.bulletctr)
+        obj.setColor(self.bulletColor)
+
+        obj.rules = self.bullet_rules
+
+        a =  self.bulletxveliter.value
+        b =  self.bulletyveliter.value
+        c =  self.bulletxacciter.value
+        d =  self.bulletyacciter.value
+
+        isHoming = int(self.isTargetting) 
+
+        # The following coeffs are used to ensure that the value of cosine and sine stay positive. 
+        # These can be altered to produce other effects
+        target = 0
+
+
+        # Allows the Shooter to track movement
+        if isHoming: 
+            error = random.uniform(-1 * self.targettingError , 1 * self.targettingError)
+            mousex, mousey = pygame.mouse.get_pos()
+            target = getTarget(mousex, mousey, self.xpos, self.ypos) + math.radians(error) - self.arcIter.value / 2 + self.aimOffset
+
+
+        # For Randomized Shooting
+        elif self.isRandomTargetting:
+            minimum = self.randomTargettingmin
+            maximum = self.randomTargettingmax
+            if self.randomTargettingmin == None:
+                minimum = 0
+            if self.randomTargettingmax== None:
+                maximum = 360
+            target = math.radians(random.randrange(minimum, maximum))
+        
+        xf = 0
+        yf = 0
+        x = 0
+        y = 0
+        if not edge:
+            angle = j  * (self.spokes) +  self.rotationIter.value
+            if bulletno == 1:
+                angle = self.arcIter.value / 2 + self.rotationIter.value
+            comp = j * (self.spokes) + target
+
+            # Calculate the parameters (x and y pos, vel and acc ) of each bullet
+            rfactor = self.targettingWeight *isHoming + 1
+            if not self.isRandomTargetting:
+                xf = (math.cos(angle + self.angle - self.arcIter.value / 2)  + self.targettingWeight * isHoming * math.cos(comp)) / rfactor
+                yf = (math.sin(angle + self.angle - self.arcIter.value / 2) + self.targettingWeight *  isHoming *math.sin(comp)) / rfactor 
+            else:
+                xf = math.cos(comp)
+                yf = math.sin(comp)
+
+            x = self.xpos +  self.inRadius * xf
+            y = self.ypos +  self.inRadius * yf
+
+        l = 0
+        if edge:
+            x = expos
+            y = eypos 
+            xf = vectorx 
+            yf = vectory
+            v = math.sqrt(a * a + b * b)
+            angle = eangle
+            
+            dx = self.xpos - x
+            dy = self.ypos - y
+
+            l = math.sqrt(dx * dx + dy * dy)
+
+            a *= l / self.inRadius 
+            b *= l / self.inRadius 
+            c *= l / self.inRadius
+            d *= l /self.inRadius
+
+        xv = a * xf 
+        yv = b * yf 
+        xa = c * xf
+        ya = d * yf
+        
+        obj.setParams(xv, yv, xa, ya)
+
+        obj.angle = angle
+        initialx = x
+        initialy = y
+            
+        
+        if self.bullet_rules[3]:
+            if not edge:
+                obj.setOrbitParams(self.bulletorbitVel, self.bulletorbitAcc, self.bulletorbitRad, x, y, angle)
+                initialx = self.xpos + self.bulletorbitRad * math.cos(angle)
+                initialy = self.ypos + self.bulletorbitRad * math.sin(angle)
+                obj.setOrbitRadParams(self.bulletorbitRadVel, self.bulletorbitRadAcc)
+            if edge:
+                dist = l 
+                obj.setOrbitParams(self.bulletorbitVel, self.bulletorbitAcc, dist , self.xpos, self.ypos, eangle)
+                irad = self.bulletorbitRad
+                obj.setOrbitRadParams(self.bulletorbitRadVel * l / irad, self.bulletorbitRadAcc * l / irad)
+            obj.setOrbitTimer(self.bulletOrbitTimer)
+            obj.setOrbitTimerStop(self.bulletOrbitTimerStop)
+            obj.isOrbit = True
+        
+        obj.setLocation(x, y)
+
+        obj.setLife(self.bulletlife)
+        obj.setSize(self.bullet_size)
+        obj.setBirth(time)
+        obj.setFunctParams(self.bulletsSinusoidal, self.bulletsSinamp, self.bulletsSinFreq)
+        
+        
+        # Adjust for homing parameters
+        if self.bullet_rules[1]:
+            obj.setHomingWeight(self.bulletHomingWeight)
+            obj.setHomeTime(self.bullethometime)
+            obj.setHomingError(self.bulletHomingError)
+            obj.setHomingDelay(self.bulletHomingDelay)
+            obj.setHomingMomentum(self.bulletHomingHomentum)
+
+        # Adjust for sticky parameters
+        if self.bullet_rules[2]:
+            obj.setStickyTimer(self.bullets_sticky_timer)
+            obj.setStickyTimerStop(self.bullets_sticky_timer_stop)
+
+        # Adjust for laser parameters
+        if self.mode == 1:
+            obj.setAngle(angle + self.angle - self.arcIter.value / 2)
+            obj.setLaserSpinRate(self.laserspinrate)
+
+        # Adjust for wave parameters
+        elif self.mode == 2:
+            obj.setWaveParams(x, y, self.wavearc, self.waverad, self.waveradvel, self.rotationIter.value)
+            obj.size = self.bullet_size
+
+        elif self.mode == 3:
+            if self.shooterSymmetry:
+                obj.angle = angle
+            else:
+                (w, x, y, z) = obj.params
+                obj.angle = getTarget(w, x ,0, 0)
+
+            if obj.isRandomDelay and not self.syncShooters:
+                obj.delay = random.randrange(obj.mindelay, obj.maxdelay)
+            elif self.syncShooters:
+                obj.delay = self.shooterdelay
+
+        # Return the location of the vertex so it can be appended to the vertex list
+        return (initialx, initialy)
